@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#1a1a1a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Tracker · Marcel · v3.1</title>
+<title>Tracker · Marcel · v3.2</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -69,6 +69,31 @@
   .rec-pill-ok { background: rgba(99,153,34,0.15); color: var(--green-light); border: 0.5px solid rgba(99,153,34,0.3); }
   .rec-pill-warn { background: rgba(239,159,39,0.12); color: var(--amber-light); border: 0.5px solid rgba(239,159,39,0.25); }
   .rec-pill-danger { background: rgba(226,75,74,0.12); color: var(--red-light); border: 0.5px solid rgba(226,75,74,0.3); }
+  /* v3.2 — Debt model tiers (5 faixas, Q2=A) */
+  .rec-pill-tier-recovered    { background: rgba(99,153,34,0.18);  color: var(--green-light);  border: 0.5px solid rgba(99,153,34,0.4); }
+  .rec-pill-tier-partial      { background: rgba(99,153,34,0.10);  color: var(--green-light);  border: 0.5px solid rgba(99,153,34,0.25); }
+  .rec-pill-tier-recovering   { background: rgba(239,159,39,0.12); color: var(--amber-light);  border: 0.5px solid rgba(239,159,39,0.3); }
+  .rec-pill-tier-insufficient { background: rgba(226,75,74,0.10);  color: var(--red-light);    border: 0.5px solid rgba(226,75,74,0.25); }
+  .rec-pill-tier-saturated    { background: rgba(226,75,74,0.20);  color: var(--red-light);    border: 0.5px solid rgba(226,75,74,0.5); font-weight: 600; }
+  .rec-pill strong { font-weight: 600; }
+
+  /* v3.2 — Recovery Dashboard (aba 📊) */
+  .recovery-dashboard { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r); padding: 14px; margin-bottom: 14px; }
+  .recovery-dashboard-title { font-size: 12px; color: var(--text); font-weight: 600; margin-bottom: 4px; }
+  .recovery-dashboard-sub { font-size: 10.5px; color: var(--muted); line-height: 1.5; margin-bottom: 12px; }
+  .recovery-grid { display: grid; grid-template-columns: 1fr; gap: 6px; }
+  .recovery-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--surface2); border-radius: 8px; border-left: 3px solid var(--border); }
+  .recovery-row.tier-recovered    { border-left-color: var(--green); }
+  .recovery-row.tier-partial      { border-left-color: var(--green-light); }
+  .recovery-row.tier-recovering   { border-left-color: var(--amber); }
+  .recovery-row.tier-insufficient { border-left-color: var(--red-light); }
+  .recovery-row.tier-saturated    { border-left-color: var(--red); }
+  .recovery-row-name { flex: 1; font-size: 11.5px; color: var(--text); font-weight: 500; }
+  .recovery-row-time { font-size: 10px; color: var(--muted); min-width: 42px; text-align: right; }
+  .recovery-row-bar-wrap { flex: 1.8; height: 7px; background: var(--surface); border-radius: 4px; overflow: hidden; position: relative; }
+  .recovery-row-bar { height: 100%; border-radius: 4px; transition: width 0.3s; }
+  .recovery-row-score { font-size: 11px; font-weight: 600; min-width: 36px; text-align: right; }
+  .recovery-row-icon { font-size: 12px; min-width: 14px; text-align: center; }
 
   /* Progress strip */
   .progress-strip { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding: 8px 12px; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r); }
@@ -305,7 +330,7 @@
 
 <div class="header">
   <div class="header-top">
-    <div class="logo"><img src="data:image/jpeg;base64,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" style="width:20px;height:20px;object-fit:contain;vertical-align:middle;border-radius:3px;margin-right:6px;" alt="icon">Tracker · Marcel<span class="logo-version">v3.1</span></div>
+    <div class="logo"><img src="data:image/jpeg;base64,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" style="width:20px;height:20px;object-fit:contain;vertical-align:middle;border-radius:3px;margin-right:6px;" alt="icon">Tracker · Marcel<span class="logo-version">v3.2</span></div>
     <div class="date-badge" id="today-date"></div>
   </div>
   <div class="tabs" id="tabs"></div>
@@ -351,8 +376,44 @@
 </script>
 <script>
 // ═══════════════════════════════════════════════════════════════
-// TREINO TRACKER MARCEL · v3.1
+// TREINO TRACKER MARCEL · v3.2
 // ═══════════════════════════════════════════════════════════════
+// CHANGELOG v3.2 (sobre v3.1):
+//
+// Recovery Debt Model (substituindo binário ✓/⚠️):
+//   Cada série efetiva = "dívida de recuperação" com decay exponencial.
+//   Score = 100 × (1 - min(1, Debt / Capacity))
+//
+//   Debt_g = Σ (frac_i × rirW_i) × exp(-Δt_i / τ_g)
+//
+//   onde:
+//     frac_i  = fração Pelland da série (1.0 / 0.5 / 0)
+//     rirW_i  = peso RIR Robinson 2024 (1.0 / 0.9 / 0.6 / 0)
+//     Δt_i    = horas desde a série
+//     τ_g     = constante de tempo do cluster (24/36/60h)
+//
+//   τ calibrado a partir das meias-vidas de MPS pós-exercício (Damas 2016,
+//   MacDougall 1995, Phillips 1997) e capacidade de clearance de CPK.
+//
+//   Capacity_g = MRV_g / 6 (sessões treinadas no microciclo 3 on/1 off)
+//
+//   5 faixas: ≥85% recuperado · 70–84% parcial · 50–69% em recuperação
+//             · 30–49% insuficiente · <30% saturado
+//
+//   Janela: 168h (7 dias) — captura ~95% do debt residual no cluster slow.
+//
+// Display:
+//   - Header de treino: chip combinado "Grupo · Xh · Y% ícone"
+//   - Aba 📊: novo dashboard "Recovery Score" mostrando score + tempo
+//     para todos os 16 grupos rastreados
+//
+// CSV:
+//   - Nova coluna `recovery_score_at_set` = snapshot do score do grupo
+//     principal do exercício no momento exato da série
+//
+// Schema: schemaVersion 6. localStorage keys v2 preservadas.
+// ═══════════════════════════════════════════════════════════════
+//
 // CHANGELOG v3.1 (sobre v3):
 //
 // P0 — Unificação fractional counting (Pelland 2026):
@@ -370,27 +431,11 @@
 // P1 — Landmarks recalibrados (Posição A — Hammarström 2020):
 //   - MEV mantém ranges naturais RP (biogênese ribossomal expande teto,
 //     não piso). MAV/MRV recebem +30% para contexto enhanced.
-//   - Valores agora conferem matematicamente contra e-books RP por
-//     grupo muscular (Chest, Back, Shoulders, Arms, Legs HTG).
 //
-// P2 — Janela de microciclo (8 dias rolling):
-//   - `getWeeklyVolume` agora opera em janela de 8 dias para alinhar
-//     ao ciclo 3 on/1 off do Marcel (~6 sessões treinadas + 2 rest
-//     ≈ semana RP equivalente).
-//
-// P2 — Alerta overshoot por sessão (Remmert 2025):
-//   - Limite empírico ~10 séries efetivas/grupo/sessão. Toast em tempo
-//     real ao marcar série + badge no summary modal pós-sessão.
-//
-// P2 — e1RM condicional (precisão Epley):
-//   - Epley aplicada apenas para reps ≤ 12. Acima disso usa Lombardi
-//     (load × reps^0.10) para evitar superestimação.
-//
-// P3 — Modulação de landmarks por deload:
-//   - Quando CONFIG.deload_week === 1, todos os landmarks são
-//     multiplicados por 0.5 para evitar falso "Sub-MEV".
-//
-// Compatibilidade: schemaVersion: 5. localStorage keys v2 preservadas.
+// P2 — Janela de microciclo (8 dias rolling).
+// P2 — Alerta overshoot por sessão (Remmert 2025, threshold ~10).
+// P2 — e1RM condicional: Epley ≤12 reps, Lombardi 13–20, suprime >20.
+// P3 — Modulação de landmarks por deload (×0.5).
 // ═══════════════════════════════════════════════════════════════
 
 // ─── DADOS DOS TREINOS ────────────────────────────────────────
@@ -606,6 +651,118 @@ const RECOVERY_HOURS = {
   costas: 48, trapezio_meio: 48, triceps: 48, quadriceps: 48,
   biceps: 48, peito: 48, adutor_abdutor: 48,
   gluteo: 84, isquios: 84,                                              // slow
+};
+
+// ─── RECOVERY DEBT MODEL (v3.2) ───────────────────────────────
+// Constante de tempo τ (horas) do decay exponencial da dívida de recuperação.
+// τ representa o tempo para a dívida cair a ~37% (1/e) do valor original.
+// Calibrado contra meias-vidas de MPS pós-exercício (Damas 2016, MacDougall
+// 1995, Phillips 1997) e clearance de marcadores de dano (CPK).
+//   Fast cluster      → τ = 24h (decay a 48h: 14%)
+//   Intermediate      → τ = 36h (decay a 48h: 26%, a 72h: 13%)
+//   Slow cluster      → τ = 60h (decay a 48h: 45%, a 72h: 30%, a 96h: 20%)
+const RECOVERY_TAU = {
+  panturrilha: 24, antebraco: 24, abdomen: 24, eretores: 24,           // fast
+  deltoide_anterior: 36, deltoide_medial: 36, deltoide_posterior: 36,  // intermediate
+  costas: 36, trapezio_meio: 36, triceps: 36, quadriceps: 36,
+  biceps: 36, peito: 36, adutor_abdutor: 36,
+  gluteo: 60, isquios: 60,                                              // slow
+};
+
+// Capacity_g = MRV / 6 (sessões treinadas no microciclo 3 on/1 off de 8 dias).
+// Representa o teto de dívida residual "viva" que o grupo absorve sem
+// regredir potencial adaptativo (decisão Q1=A — divisor fixo simplificado).
+const SESSIONS_PER_MICROCYCLE = 6;
+function getCapacity(group) {
+  const lm = VOLUME_LANDMARKS_BASE[group];
+  if (!lm) return 4;  // fallback defensivo
+  // Em deload, capacity também escala 0.5×
+  const deloadFactor = CONFIG?.deload_week ? 0.5 : 1.0;
+  return (lm.mrv / SESSIONS_PER_MICROCYCLE) * deloadFactor;
+}
+
+// Janela histórica para cálculo de debt (Q4=A): 168h = 7 dias.
+// Captura ~95% do debt residual de cluster slow, ~99% de fast.
+const RECOVERY_DEBT_WINDOW_H = 168;
+
+/**
+ * Calcula o Recovery Score de um grupo muscular no momento `nowMs`.
+ * Retorna objeto com:
+ *   - score: 0–100 (percentual recuperado)
+ *   - debt: dívida acumulada (séries efetivas residuais)
+ *   - capacity: teto absoluto do grupo
+ *   - hoursSinceLast: horas desde último estímulo ≥0.40 (ou null)
+ *   - tier: 'recovered' | 'partial' | 'recovering' | 'insufficient' | 'saturated'
+ *   - contributions: array de {sessionTs, debtContrib, decay} para tooltip/análise
+ */
+function calculateRecoveryScore(group, history, nowMs = Date.now()) {
+  const tau = RECOVERY_TAU[group];
+  if (!tau) return null;
+  const capacity = getCapacity(group);
+  const cutoffMs = nowMs - (RECOVERY_DEBT_WINDOW_H * 3600000);
+
+  let debt = 0;
+  let hoursSinceLast = null;
+  const contributions = [];
+
+  for (const session of history) {
+    if (!session.ts || session.ts < cutoffMs || !session.exSets) continue;
+    const dtH = (nowMs - session.ts) / 3600000;
+    const decay = Math.exp(-dtH / tau);
+    let sessionDebt = 0;
+
+    Object.keys(session.exSets).forEach(exId => {
+      const coef = EMG_COEFFICIENTS[exId];
+      if (!coef || coef[group] === undefined) return;
+      session.exSets[exId].forEach(s => {
+        if (!s.done) return;
+        const frac = fractionFromCoef(coef[group]);
+        if (frac === 0) return;
+        const rirW = rirWeight(s.rir);
+        sessionDebt += frac * rirW;
+        // Captura tempo desde último estímulo efetivo (frac ≥ 0.5)
+        if (frac >= 0.5 && (hoursSinceLast === null || dtH < hoursSinceLast)) {
+          hoursSinceLast = dtH;
+        }
+      });
+    });
+
+    if (sessionDebt > 0) {
+      const contrib = sessionDebt * decay;
+      debt += contrib;
+      contributions.push({
+        sessionTs: session.ts,
+        treino: session.treino,
+        rawSets: +sessionDebt.toFixed(2),
+        decay: +decay.toFixed(3),
+        debtContrib: +contrib.toFixed(2)
+      });
+    }
+  }
+
+  const score = Math.max(0, Math.min(100, Math.round(100 * (1 - Math.min(1, debt / capacity)))));
+
+  let tier;
+  if (score >= 85) tier = 'recovered';
+  else if (score >= 70) tier = 'partial';
+  else if (score >= 50) tier = 'recovering';
+  else if (score >= 30) tier = 'insufficient';
+  else tier = 'saturated';
+
+  return {
+    score, debt: +debt.toFixed(2), capacity: +capacity.toFixed(2),
+    hoursSinceLast: hoursSinceLast === null ? null : +hoursSinceLast.toFixed(1),
+    tier, contributions
+  };
+}
+
+// Mapeia tier → label/cor para UI
+const RECOVERY_TIER_META = {
+  recovered:    { label: 'Recuperado',    color: 'var(--green)',      icon: '✓'  },
+  partial:      { label: 'Parcial',       color: 'var(--green-light)',icon: '✓'  },
+  recovering:   { label: 'Em recup.',     color: 'var(--amber)',      icon: '⚠'  },
+  insufficient: { label: 'Insuficiente',  color: 'var(--red-light)',  icon: '⚠'  },
+  saturated:    { label: 'Saturado',      color: 'var(--red)',        icon: '✕'  },
 };
 
 // ─── PERSISTÊNCIA (localStorage com schema versionado) ────────
@@ -1117,30 +1274,38 @@ function formatEMGSummary(exId) {
 }
 
 function renderRecoveryStrip(t, muscleLastTrained) {
-  // Identifica os 3 grupos primários do treino atual e checa recovery status
+  // v3.2: chip combinado "Grupo · Xh · Y% ícone" usando debt model.
+  // Identifica os grupos com participação ≥0.7 nos exercícios do treino atual.
   const primaryGroups = new Set();
   t.exercises.forEach(ex => {
     const coef = EMG_COEFFICIENTS[ex.id];
     if (!coef) return;
     Object.entries(coef).forEach(([g, v]) => { if (v >= 0.7) primaryGroups.add(g); });
   });
+
+  const hist = loadHistory();
   const pills = [];
   Array.from(primaryGroups).slice(0, 6).forEach(grp => {
+    const label = VOLUME_LANDMARKS_BASE[grp]?.label || grp;
     const lastTs = muscleLastTrained[grp];
-    const minHours = RECOVERY_HOURS[grp] || 48;
-    const label = VOLUME_LANDMARKS[grp]?.label || grp;
-    if (!lastTs) {
-      pills.push(`<span class="rec-pill rec-pill-ok">${label} · novo</span>`);
+
+    // Calcula score via debt model
+    const rec = calculateRecoveryScore(grp, hist);
+    if (!rec || !lastTs) {
+      pills.push(`<span class="rec-pill rec-pill-ok" title="Sem histórico recente">${label} · novo</span>`);
       return;
     }
-    const h = hoursSince(lastTs);
-    if (h >= minHours) {
-      pills.push(`<span class="rec-pill rec-pill-ok">${label} · ${Math.round(h)}h ✓</span>`);
-    } else if (h >= minHours * 0.75) {
-      pills.push(`<span class="rec-pill rec-pill-warn">${label} · ${Math.round(h)}h ⚠</span>`);
-    } else {
-      pills.push(`<span class="rec-pill rec-pill-danger">${label} · ${Math.round(h)}h ✗</span>`);
-    }
+
+    const meta = RECOVERY_TIER_META[rec.tier];
+    const hStr = `${Math.round(rec.hoursSinceLast ?? hoursSince(lastTs))}h`;
+    const tierClass = `rec-pill-tier-${rec.tier}`;
+    const tooltip = `Debt ${rec.debt} / Capacity ${rec.capacity} · ${rec.contributions.length} sessão(ões) contribuindo`;
+
+    pills.push(
+      `<span class="rec-pill ${tierClass}" title="${tooltip}">` +
+        `${label} · ${hStr} · <strong>${rec.score}%</strong> ${meta.icon}` +
+      `</span>`
+    );
   });
   if (pills.length === 0) return '';
   return `<div class="recovery-strip">${pills.join('')}</div>`;
@@ -1461,6 +1626,23 @@ function finishSession() {
   const hist = loadHistory();
   const prs = loadPRs();
 
+  // v3.2: snapshot do Recovery Score pré-sessão para cada grupo primário
+  // do treino atual. Calculado ANTES da própria sessão entrar no histórico,
+  // representando o estado de recuperação no momento que a sessão começou.
+  const recoverySnapshot = {};
+  const primaryGroupsForSession = new Set();
+  t.exercises.forEach(ex => {
+    const coef = EMG_COEFFICIENTS[ex.id];
+    if (!coef) return;
+    Object.entries(coef).forEach(([g, v]) => {
+      if (v >= 0.40) primaryGroupsForSession.add(g);  // threshold Pelland
+    });
+  });
+  primaryGroupsForSession.forEach(grp => {
+    const rec = calculateRecoveryScore(grp, hist);
+    if (rec) recoverySnapshot[grp] = rec.score;
+  });
+
   let totalLoad = 0, totalSets = 0, prCount = 0;
   const exVolumes = {};       // exId → kg total
   const exSets = {};          // exId → array de objetos por série
@@ -1560,8 +1742,9 @@ function finishSession() {
     deload: CONFIG.deload_week ? 1 : 0,
     notes: draft.notes || '',  // Melhoria 5
     overshootGroups: overshootGroups,  // v3.1: Remmert 2025
+    recoverySnapshot: recoverySnapshot, // v3.2: scores pré-sessão por grupo
     ts: Date.now(),
-    schemaVersion: 5
+    schemaVersion: 6
   };
   hist.push(entry);
   saveHistory(hist);
@@ -1718,6 +1901,7 @@ function renderHistory(main) {
   let html = `<div class="subtabs">
     <button class="subtab ${histSubTab==='resumo'?'active':''}" onclick="switchSubTab('resumo')">Resumo</button>
     <button class="subtab ${histSubTab==='volume'?'active':''}" onclick="switchSubTab('volume')">Volume</button>
+    <button class="subtab ${histSubTab==='recovery'?'active':''}" onclick="switchSubTab('recovery')">Recovery</button>
     <button class="subtab ${histSubTab==='graficos'?'active':''}" onclick="switchSubTab('graficos')">Gráficos</button>
     <button class="subtab ${histSubTab==='exportar'?'active':''}" onclick="switchSubTab('exportar')">CSV</button>
   </div>`;
@@ -1727,6 +1911,9 @@ function renderHistory(main) {
     main.innerHTML = html;
   } else if (histSubTab === 'volume') {
     html += buildVolumeHTML(hist);
+    main.innerHTML = html;
+  } else if (histSubTab === 'recovery') {
+    html += buildRecoveryHTML(hist);
     main.innerHTML = html;
   } else if (histSubTab === 'graficos') {
     html += buildGraficosHTML(hist, byTreino);
@@ -1812,6 +1999,85 @@ function buildResumoHTML(hist, prs, byTreino, totalSessions, totalVol, prTotal, 
   </div>`;
   html += `<div class="spacer"></div>`;
   return html;
+}
+
+function buildRecoveryHTML(hist) {
+  // v3.2 — Dashboard Recovery Score (Q3=B): mostra os 16 grupos com
+  // score percentual, tempo desde último estímulo e barra de progresso visual.
+  const groupKeys = Object.keys(VOLUME_LANDMARKS_BASE);
+  const rows = groupKeys.map(grp => {
+    const rec = calculateRecoveryScore(grp, hist);
+    return { grp, label: VOLUME_LANDMARKS_BASE[grp].label, rec };
+  });
+
+  // Ordena: saturados primeiro (priorizar atenção), depois insuficientes,
+  // depois em recuperação, etc. Dentro do tier, ordena por score crescente.
+  const tierOrder = { saturated: 0, insufficient: 1, recovering: 2, partial: 3, recovered: 4 };
+  rows.sort((a, b) => {
+    if (!a.rec && !b.rec) return 0;
+    if (!a.rec) return 1;
+    if (!b.rec) return -1;
+    const ta = tierOrder[a.rec.tier] ?? 5;
+    const tb = tierOrder[b.rec.tier] ?? 5;
+    if (ta !== tb) return ta - tb;
+    return a.rec.score - b.rec.score;
+  });
+
+  let html = `<div class="recovery-dashboard">
+    <div class="recovery-dashboard-title">Recovery Score · Debt model</div>
+    <div class="recovery-dashboard-sub">
+      Dívida de recuperação com decay exponencial (τ por cluster: fast 24h · intermediate 36h · slow 60h).
+      Capacity = MRV ÷ ${SESSIONS_PER_MICROCYCLE} sessões. Janela ${RECOVERY_DEBT_WINDOW_H}h. Toque na linha para detalhes.
+      ${CONFIG?.deload_week ? '<br><span style="color:var(--amber);font-weight:600;">⏸ Deload: capacity × 0.5</span>' : ''}
+    </div>
+    <div class="recovery-grid">`;
+
+  rows.forEach(({ grp, label, rec }) => {
+    if (!rec) return;
+    const meta = RECOVERY_TIER_META[rec.tier];
+    const timeStr = rec.hoursSinceLast === null
+      ? 'novo'
+      : (rec.hoursSinceLast < 96 ? `${Math.round(rec.hoursSinceLast)}h` : `${Math.round(rec.hoursSinceLast/24)}d`);
+    const barColor = meta.color;
+    const contribCount = rec.contributions.length;
+    const detail = contribCount > 0
+      ? `${contribCount} sessão(ões) · debt ${rec.debt} / cap ${rec.capacity}`
+      : 'sem estímulo recente';
+
+    html += `<div class="recovery-row tier-${rec.tier}" title="${detail}" onclick="showRecoveryDetail('${grp}')">
+      <span class="recovery-row-icon">${meta.icon}</span>
+      <span class="recovery-row-name">${label}</span>
+      <span class="recovery-row-time">${timeStr}</span>
+      <div class="recovery-row-bar-wrap">
+        <div class="recovery-row-bar" style="width:${rec.score}%;background:${barColor};"></div>
+      </div>
+      <span class="recovery-row-score" style="color:${barColor};">${rec.score}%</span>
+    </div>`;
+  });
+
+  html += `</div></div>`;
+  html += `<div class="spacer"></div>`;
+  return html;
+}
+
+// Mostra detalhes (decomposição por sessão) ao tocar numa linha do dashboard
+function showRecoveryDetail(group) {
+  const hist = loadHistory();
+  const rec = calculateRecoveryScore(group, hist);
+  if (!rec) return;
+  const label = VOLUME_LANDMARKS_BASE[group]?.label || group;
+  const tau = RECOVERY_TAU[group];
+  let msg = `${label}\n\n`;
+  msg += `Score: ${rec.score}% · Debt ${rec.debt} / Capacity ${rec.capacity}\n`;
+  msg += `Último estímulo: ${rec.hoursSinceLast === null ? '—' : Math.round(rec.hoursSinceLast) + 'h atrás'}\n`;
+  msg += `τ do cluster: ${tau}h\n\n`;
+  msg += `Contribuições (${rec.contributions.length} sessão(ões)):\n`;
+  rec.contributions.slice(0, 8).forEach(c => {
+    const dt = new Date(c.sessionTs);
+    const dateStr = `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`;
+    msg += `  ${dateStr} (${c.treino}): ${c.rawSets}s × ${c.decay} decay = ${c.debtContrib}\n`;
+  });
+  alert(msg);
 }
 
 function buildVolumeHTML(hist) {
@@ -2098,6 +2364,7 @@ const CSV_COLUMNS = [
   { key: "notes",            type: "text",    desc: "Observações livres — futuro" },
   { key: "bf_pct_pollock",   type: "num",     desc: "% gordura Pollock — futuro" },
   { key: "overshoot_groups", type: "text",    desc: "Grupos em overshoot na sessão (Remmert 2025)" },
+  { key: "recovery_score_at_set", type: "num", desc: "Recovery score do grupo principal do exercício no início da sessão (v3.2 debt model)" },
 ];
 
 function csvEsc(v) {
@@ -2195,6 +2462,16 @@ function buildCSVRow(session, exDef, setData) {
     overshoot_groups: (session.overshootGroups && session.overshootGroups.length > 0)
       ? session.overshootGroups.map(o => `${o.group}:${o.sets}`).join('|')
       : '',
+    // v3.2: snapshot do score do grupo principal deste exercício no início da sessão
+    recovery_score_at_set: (() => {
+      const snap = session.recoverySnapshot || {};
+      const coef = EMG_COEFFICIENTS[exDef.id];
+      if (!coef) return '';
+      // Identifica grupo principal: maior coef (com tie-break determinístico)
+      let topGrp = null, topVal = 0;
+      Object.entries(coef).forEach(([g, v]) => { if (v > topVal) { topVal = v; topGrp = g; } });
+      return (topGrp && snap[topGrp] !== undefined) ? snap[topGrp] : '';
+    })(),
   };
 }
 
