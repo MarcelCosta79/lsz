@@ -3406,8 +3406,11 @@ function buildEmptySession(treino) {
       volume: 0, done: 0, targetReps: s.reps, rir: null, done_at: null
     }));
   });
-  // Default a uma hora atrás para "session manual" (timestamps razoáveis)
-  const defaultTs = Date.now() - 3600000;
+  // v4.0: default ts = agora. Faz com que sessões manuais lançadas "logo após
+  // o treino" sejam a sessão mais recente por padrão (caso de uso comum: esqueci
+  // de gravar). O user pode mudar para data/hora retroativa no campo "Quando".
+  // started_at default a 1h antes para um shape razoável de sessão.
+  const defaultTs = Date.now();
   return {
     schemaVersion: SCHEMA_VERSION,
     ts: defaultTs,
@@ -3633,6 +3636,7 @@ function saveEditorSession() {
   recalcEditorAggregates();
   const d = _editorState.draft;
   const hist = loadHistory();
+  const wasManual = _editorState.mode === 'manual';
 
   if (_editorState.mode === 'edit') {
     const idx = hist.findIndex(s => s.ts === _editorState.sessionTs);
@@ -3653,9 +3657,57 @@ function saveEditorSession() {
     hist.push(d);
     hist.sort((a,b) => (a.ts||0) - (b.ts||0));
   }
+
+  // v4.0 (fix bug manual+edit): rebuild PRs do zero a partir do histórico.
+  // Cobre ambos os casos: sessão manual com PR real (registra) e edição que
+  // baixou um valor absurdo (PR fantasma é removido). PR é derivação pura do
+  // histórico — recalcular é sempre seguro e idempotente.
+  const newPRs = rebuildPRsFromHistory(hist);
+  const oldPRs = loadPRs();
+  // Detecta PRs novos para feedback informativo no toast.
+  const todayIso = todayISO();
+  const newPRsToday = [];
+  Object.keys(newPRs).forEach(exId => {
+    const newPR = newPRs[exId];
+    const oldPR = oldPRs[exId];
+    const isNewOrBetter = !oldPR || newPR.e1rm > (oldPR.e1rm || 0);
+    if (isNewOrBetter && newPR.ts && tsToISO(newPR.ts) === todayIso) {
+      newPRsToday.push({ exId, e1rm: newPR.e1rm });
+    }
+  });
+  savePRs(newPRs);
+
+  // Recalcula prCount da sessão recém-salva (era 0 para manual, podia estar errado em edit).
+  // Conta exercícios da sessão d cujo PR atual coincide com a sessão (ts).
+  let prCountThis = 0;
+  Object.keys(d.exSets || {}).forEach(exId => {
+    if (newPRs[exId] && newPRs[exId].ts === d.ts) prCountThis++;
+  });
+  d.prCount = prCountThis;
+  // Re-grava o histórico para persistir o prCount atualizado.
   saveHistory(hist);
+
   closeSessionEditor(true);
-  showToast(_editorState?.mode === 'manual' ? "✅ Sessão criada" : "✅ Alterações salvas", "success");
+
+  // Toast informativo: distingue criação manual de edição,
+  // e indica próximo treino sugerido pela rotação se a sessão foi de hoje.
+  let toastMsg;
+  if (wasManual) {
+    const sessionIso = d.ts ? tsToISO(d.ts) : null;
+    if (sessionIso === todayIso) {
+      const next = getNextTrainingTab();
+      toastMsg = `✅ Sessão ${d.treino} registrada · próximo: ${next}`;
+    } else {
+      toastMsg = `✅ Sessão ${d.treino} de ${sessionDateBR(d)} registrada`;
+    }
+    if (prCountThis > 0) toastMsg += ` · ${prCountThis} PR`;
+  } else {
+    toastMsg = prCountThis > 0
+      ? `✅ Alterações salvas · ${prCountThis} PR recalculado`
+      : "✅ Alterações salvas";
+  }
+  showToast(toastMsg, "success");
+
   // Re-render histórico
   if (currentTab === "📊") renderAll();
 }
@@ -3671,10 +3723,47 @@ function deleteSessionFromEditor() {
   } else {
     hist.splice(idx, 1);
     saveHistory(hist);
-    showToast("🗑 Sessão deletada", "success");
+    // v4.0 (fix): rebuild PRs após delete. Se a sessão deletada continha o PR,
+    // ele é substituído pelo melhor da história restante; se ela era o único
+    // registro de um exercício, o PR é removido do localStorage.
+    const newPRs = rebuildPRsFromHistory(hist);
+    savePRs(newPRs);
+    showToast("🗑 Sessão deletada · PRs recalculados", "success");
   }
   closeSessionEditor(true);
   if (currentTab === "📊") renderAll();
+}
+
+// ─── REBUILD PRs A PARTIR DO HISTÓRICO ────────────────────────
+// PRs são derivação pura do histórico: para cada exercício, o melhor e1RM
+// entre todas as séries done com load>0 e reps>0. Esta função reconstrói o
+// objeto inteiro do zero — usada em todos os pontos que mutam o histórico
+// (save de edição, delete, criação manual, import). Garante consistência total.
+function rebuildPRsFromHistory(hist) {
+  const out = {};
+  for (const s of hist) {
+    if (!s.exSets) continue;
+    Object.keys(s.exSets).forEach(exId => {
+      s.exSets[exId].forEach(set => {
+        if (!set.done || !set.load || !set.reps) return;
+        const e1rm = calculateE1RM(set.load, set.reps);
+        if (e1rm === null) return;
+        const e1rmRounded = +e1rm.toFixed(2);
+        if (!out[exId] || e1rmRounded > out[exId].e1rm) {
+          out[exId] = {
+            load: set.load,
+            reps: set.reps,
+            e1rm: e1rmRounded,
+            // Data BR derivada do ts da sessão (P2.8) — não do `date` salvo,
+            // que pode estar inconsistente em sessões muito antigas.
+            date: s.ts ? tsToBR(s.ts) : (s.date || '—'),
+            ts: s.ts || null
+          };
+        }
+      });
+    });
+  }
+  return out;
 }
 
 // ─── BACKUP JSON · ROUND-TRIP LOSSLESS (P0.3) ─────────────────
@@ -3762,7 +3851,14 @@ function importBackupJSON(payload) {
   try {
     // Substitui state completo (não merge)
     saveHistory(payload.history);
-    if (payload.prs) savePRs(payload.prs);
+    // v4.0 (fix bug PR): se o payload trouxe PRs, usa; senão (ou se queremos
+    // garantir consistência absoluta), rebuilda do histórico. PRs são derivação
+    // pura — não há perda de informação no rebuild.
+    if (payload.prs && Object.keys(payload.prs).length > 0) {
+      savePRs(payload.prs);
+    } else {
+      savePRs(rebuildPRsFromHistory(payload.history));
+    }
     if (payload.config) {
       // Mescla com defaults para evitar perder campos novos do schema atual
       CONFIG = Object.assign({}, DEFAULT_CONFIG, payload.config);
