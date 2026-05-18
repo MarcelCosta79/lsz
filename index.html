@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#1a1a1a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Tracker · Marcel · v4.0</title>
+<title>Tracker · Marcel · v4.1</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -425,11 +425,144 @@
   .sess-notes-input:focus { outline: none; color: var(--text); }
   .sess-notes-input::placeholder { color: rgba(255,255,255,0.18); }
 
+  /* v4.1 — Rest Timer Modal (global, auto-triggered, minimizable) */
+  .rest-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.78); z-index: 260;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  }
+  .rest-modal-overlay.visible { opacity: 1; pointer-events: auto; }
+  .rest-modal {
+    background: var(--surface); border: 0.5px solid var(--border2); border-radius: 18px;
+    padding: 22px 20px calc(20px + var(--safe-bottom)); width: 100%; max-width: 380px;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.65); transform: scale(0.94);
+    transition: transform 0.22s ease-out;
+  }
+  .rest-modal-overlay.visible .rest-modal { transform: scale(1); }
+  .rest-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .rest-modal-eyebrow { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+  .rest-modal-close-x {
+    background: transparent; border: none; color: var(--muted); font-size: 22px; line-height: 1;
+    cursor: pointer; padding: 0 4px; -webkit-tap-highlight-color: transparent;
+  }
+  .rest-modal-close-x:hover { color: var(--text); }
+  .rest-modal-exname { font-size: 16px; font-weight: 600; color: var(--text); margin-top: 4px; }
+  .rest-modal-setinfo { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .rest-modal-clock {
+    margin: 18px 0 8px; text-align: center;
+    font-size: 72px; font-weight: 700; font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em; line-height: 1;
+    transition: color 0.2s;
+  }
+  .rest-modal-clock.running { color: var(--amber); }
+  .rest-modal-clock.overtime { color: var(--red); animation: pulse 1s ease-in-out infinite; }
+  .rest-modal-clock.done { color: var(--green-light); }
+  .rest-modal-progress {
+    height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden;
+    margin: 0 0 16px;
+  }
+  .rest-modal-progress-fill {
+    height: 100%; background: var(--amber); border-radius: 2px;
+    transition: width 0.25s linear;
+  }
+  .rest-modal-progress-fill.overtime { background: var(--red); }
+  .rest-modal-meta {
+    background: var(--surface2); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px;
+    font-size: 11.5px; color: var(--muted); line-height: 1.55;
+  }
+  .rest-modal-meta strong { color: var(--text); font-weight: 600; }
+  .rest-modal-meta-row { display: flex; justify-content: space-between; gap: 12px; }
+  .rest-modal-meta-row + .rest-modal-meta-row { margin-top: 4px; }
+  .rest-modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .rest-modal-btn {
+    padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer;
+    border: 0.5px solid; -webkit-tap-highlight-color: transparent; transition: transform 0.1s;
+  }
+  .rest-modal-btn:active { transform: scale(0.96); }
+  .rest-modal-btn-primary { background: var(--amber); color: #1a1a1a; border-color: var(--amber); }
+  .rest-modal-btn-secondary { background: var(--surface2); color: var(--text); border-color: var(--border2); }
+  .rest-modal-btn-danger { background: rgba(226,75,74,0.15); color: var(--red-light); border-color: rgba(226,75,74,0.4); }
+  .rest-modal-foot { font-size: 10px; color: var(--muted); margin-top: 10px; text-align: center; opacity: 0.7; }
+
+  /* Minimized rest timer chip — floats above content */
+  .rest-chip {
+    position: fixed; left: 50%; transform: translateX(-50%) translateY(80px);
+    bottom: calc(16px + var(--safe-bottom));
+    background: var(--surface); border: 0.5px solid var(--border2);
+    border-radius: 22px; padding: 8px 14px 8px 12px;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.5); cursor: pointer;
+    z-index: 240; opacity: 0; transition: opacity 0.2s, transform 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    max-width: calc(100vw - 32px);
+  }
+  .rest-chip.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .rest-chip-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--amber); flex-shrink: 0;
+    box-shadow: 0 0 6px rgba(239,159,39,0.6); animation: pulse 1.4s ease-in-out infinite;
+  }
+  .rest-chip.overtime .rest-chip-dot { background: var(--red); box-shadow: 0 0 6px rgba(226,75,74,0.7); }
+  .rest-chip-time {
+    font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums;
+    color: var(--text); min-width: 42px; letter-spacing: 0.02em;
+  }
+  .rest-chip.overtime .rest-chip-time { color: var(--red-light); }
+  .rest-chip-label { font-size: 11px; color: var(--muted); }
+  .rest-chip-close {
+    background: transparent; border: none; color: var(--muted); font-size: 14px; line-height: 1;
+    padding: 2px 4px; cursor: pointer; margin-left: 2px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .rest-chip-close:hover { color: var(--text); }
+
+  /* Session-time chip — top-right floating, shows elapsed since first ✓ */
+  .session-chip {
+    position: fixed; top: calc(64px + env(safe-area-inset-top, 0));
+    right: 12px;
+    background: rgba(36,36,36,0.92); border: 0.5px solid var(--border2);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border-radius: 14px; padding: 5px 10px; font-size: 11px;
+    color: var(--muted); z-index: 90;
+    display: flex; align-items: center; gap: 6px;
+    opacity: 0; transition: opacity 0.25s; pointer-events: none;
+  }
+  .session-chip.visible { opacity: 1; }
+  .session-chip-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
+  .session-chip-time { font-variant-numeric: tabular-nums; color: var(--text); font-weight: 600; }
+
+  /* v4.1 — Calendar heatmap (G3) */
+  .heatmap-wrap { overflow-x: auto; padding: 4px 2px 6px; scrollbar-width: thin; }
+  .heatmap-wrap::-webkit-scrollbar { height: 4px; }
+  .heatmap-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .heatmap-grid {
+    display: grid; grid-auto-flow: column;
+    grid-template-rows: repeat(7, 13px);
+    gap: 2px; min-width: max-content;
+  }
+  .heatmap-cell {
+    width: 13px; height: 13px; border-radius: 2px;
+    background: var(--surface2); border: 0.5px solid var(--border);
+  }
+  .heatmap-cell.level-0 { background: var(--surface2); }
+  .heatmap-cell.level-1 { background: rgba(99,153,34,0.32); border-color: rgba(99,153,34,0.2); }
+  .heatmap-cell.level-2 { background: rgba(99,153,34,0.55); border-color: rgba(99,153,34,0.35); }
+  .heatmap-cell.level-3 { background: rgba(99,153,34,0.78); border-color: rgba(99,153,34,0.5); }
+  .heatmap-cell.level-4 { background: var(--green); border-color: var(--green); }
+  .heatmap-cell.future { opacity: 0.3; }
+  .heatmap-cell.today { box-shadow: 0 0 0 1px var(--amber); }
+  .heatmap-legend {
+    display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--muted);
+    margin-top: 8px; justify-content: flex-end;
+  }
+  .heatmap-legend-cell { width: 10px; height: 10px; border-radius: 2px; }
+
   @media (max-width: 380px) {
     .main { padding: 12px; }
     .ex-name { font-size: 13px; }
     .sets-grid, .set-row { grid-template-columns: 22px 1fr 1fr 44px 28px; gap: 4px; }
     .set-input { font-size: 13px; }
+    .rest-modal-clock { font-size: 60px; }
   }
 </style>
 </head>
@@ -437,7 +570,7 @@
 
 <div class="header">
   <div class="header-top">
-    <div class="logo"><img src="data:image/jpeg;base64,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" style="width:20px;height:20px;object-fit:contain;vertical-align:middle;border-radius:3px;margin-right:6px;" alt="icon">Tracker · Marcel<span class="logo-version">v4.0</span></div>
+    <div class="logo"><img src="data:image/jpeg;base64,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" style="width:20px;height:20px;object-fit:contain;vertical-align:middle;border-radius:3px;margin-right:6px;" alt="icon">Tracker · Marcel<span class="logo-version">v4.1</span></div>
     <div class="date-badge" id="today-date"></div>
   </div>
   <div class="tabs" id="tabs"></div>
@@ -466,6 +599,40 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- v4.1 — Rest Timer Modal (auto-triggered on ✓) -->
+<div class="rest-modal-overlay" id="rest-modal-overlay" onclick="onRestModalBackdrop(event)">
+  <div class="rest-modal" onclick="event.stopPropagation()" role="dialog" aria-labelledby="rest-modal-exname" aria-live="polite">
+    <div class="rest-modal-head">
+      <span class="rest-modal-eyebrow">Descanso</span>
+      <button class="rest-modal-close-x" onclick="minimizeRestModal()" aria-label="Minimizar timer">×</button>
+    </div>
+    <div class="rest-modal-exname" id="rest-modal-exname">—</div>
+    <div class="rest-modal-setinfo" id="rest-modal-setinfo">—</div>
+    <div class="rest-modal-clock" id="rest-modal-clock" aria-label="Tempo de descanso restante">0:00</div>
+    <div class="rest-modal-progress"><div class="rest-modal-progress-fill" id="rest-modal-progress-fill"></div></div>
+    <div class="rest-modal-meta" id="rest-modal-meta"></div>
+    <div class="rest-modal-actions">
+      <button class="rest-modal-btn rest-modal-btn-secondary" onclick="minimizeRestModal()">Minimizar</button>
+      <button class="rest-modal-btn rest-modal-btn-danger" onclick="stopRestTimer()">Parar</button>
+    </div>
+    <div class="rest-modal-foot" id="rest-modal-foot"></div>
+  </div>
+</div>
+
+<!-- v4.1 — Minimized rest timer chip (floats above content) -->
+<div class="rest-chip" id="rest-chip" onclick="restoreRestModal()" role="button" aria-label="Reabrir timer de descanso">
+  <span class="rest-chip-dot"></span>
+  <span class="rest-chip-time" id="rest-chip-time">0:00</span>
+  <span class="rest-chip-label" id="rest-chip-label">descanso</span>
+  <button class="rest-chip-close" onclick="event.stopPropagation(); stopRestTimer();" aria-label="Parar timer">✕</button>
+</div>
+
+<!-- v4.1 — Session-time chip (shows elapsed since first ✓ of current session) -->
+<div class="session-chip" id="session-chip" aria-hidden="true">
+  <span class="session-chip-dot"></span>
+  <span>Sessão <span class="session-chip-time" id="session-chip-time">0:00</span></span>
+</div>
+
 <script>/* Chart.js v4.4.0 — embedded for offline use */
 /*!
  * Chart.js v4.4.0
@@ -483,8 +650,51 @@
 </script>
 <script>
 // ═══════════════════════════════════════════════════════════════
-// TREINO TRACKER MARCEL · v3.3
+// TREINO TRACKER MARCEL · v4.1
 // ═══════════════════════════════════════════════════════════════
+// CHANGELOG v4.1 (sobre v4.0):
+//
+// Rest Timer Modal (substituindo timer inline por exercício):
+//   - Auto-trigger ao marcar série ✓ verde (zero atrito)
+//   - Modal único global minimizável → chip flutuante no rodapé
+//   - Conteúdo enriquecido: próxima série prevista, alvo de reps, PR atual,
+//     dica baseada no RIR registrado (zona ótima 0-2 vs falha vs leve)
+//   - Drop-set scenario: ✓ rápido em sucessão NÃO reinicia o timer
+//   - Undo de série NÃO mata o timer (continua rodando)
+//   - Persiste em draft (_restTimerStart) — sobrevive a recargas
+//   - Auto-stop em overtime 3× target (proteção contra esquecimento)
+//
+// Session-time chip (canto superior direito):
+//   - Mostra tempo decorrido desde o primeiro ✓ da sessão
+//   - Persistido em draft (_sessionStart)
+//   - Reseta automaticamente ao finalizar a sessão
+//
+// Wake Lock API:
+//   - Mantém a tela ativa durante treino (crítico em iOS PWA)
+//   - Re-requisita após visibilitychange (Wake Lock é auto-released)
+//   - Liberado ao trocar para abas não-treino sem timer ativo
+//
+// Service Worker offline-first (Blob URL inline):
+//   - Cache-first com network fallback
+//   - Permite reabrir o app offline mesmo se GitHub Pages estiver inacessível
+//   - Skip em file:// (não-suportado)
+//
+// 3 novos gráficos (aba 📊 → Gráficos):
+//   - G1: Recovery Score timeline (linha multi-série) — peito, costas, quad, isquios
+//     evoluindo ao longo do tempo. Crítico para detectar saturação crônica.
+//   - G2: Radar de volume semanal (16 grupos) com MEV/MAV de referência.
+//     Visual instantâneo de gaps e overshoot.
+//   - G3: Calendar heatmap GitHub-style (26 semanas) — consistência de treino.
+//
+// Refatorações estruturais (invisíveis ao usuário):
+//   - CHART_REGISTRY: cada gráfico é descriptor {id, title, dataCheck, build, kind, htmlHeader}.
+//     Adicionar/remover gráficos = editar uma lista, sem duplicar HTML/JS.
+//   - Targeted DOM updates: toggleCheck já não usa renderAll (otimização v4.0 mantida).
+//   - Timer state: per-exercise map → estado global único `restTimerState`.
+//
+// Schema: schemaVersion 4 (sem breaking change). localStorage keys v4 preservadas.
+// ═══════════════════════════════════════════════════════════════
+//
 // CHANGELOG v3.3 (sobre v3.2):
 //
 // Recovery Debt Model — recalibração informada por debt_model.pdf:
@@ -1191,6 +1401,100 @@ let timers = {};   // map exId → { start: ms, intervalId, target: sec, beeped:
 let rirPickerCtx = null;  // { exId, setIdx } guardado para callback
 let CONFIG = loadConfig();
 
+// ─── v4.1 — ESTADO GLOBAL ADICIONAL ───────────────────────────
+// Rest timer: estado único global (em vez de map por exercício).
+// Acionado automaticamente ao marcar ✓ verde, modal minimizável.
+// undefined = sem timer ativo
+let restTimerState = null;
+// { exId, exName, setIdx, totalSets, targetSec, startMs, intervalId, beeped, completed,
+//   nextSetReps, nextSetTargetLoad, lastPR, treinoKey }
+
+// Session timer: timestamp do primeiro ✓ da sessão atual (por treinoKey).
+// Persistido em draft para sobreviver a recargas.
+let sessionTimerIntervalId = null;
+
+// Wake Lock: mantém tela ativa durante treino.
+// Liberado ao trocar de aba não-treino ou sessão finalizada.
+let wakeLockSentinel = null;
+
+// ─── v4.1 — WAKE LOCK API ─────────────────────────────────────
+// Mantém a tela ativa durante o treino (crítico em mobile/PWA).
+// Suportado: Chrome 84+, Safari 16.4+, Firefox 126+, Edge 84+.
+// Re-requisita automaticamente após visibilitychange.
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) return false;
+  if (wakeLockSentinel && !wakeLockSentinel.released) return true;
+  try {
+    wakeLockSentinel = await navigator.wakeLock.request('screen');
+    wakeLockSentinel.addEventListener('release', () => {
+      // Released — pode ser por visibilitychange ou manual. Não logamos.
+    });
+    return true;
+  } catch (e) {
+    // NotAllowedError ou similar — silencia, sem feedback ruidoso ao usuário.
+    return false;
+  }
+}
+async function releaseWakeLock() {
+  if (wakeLockSentinel && !wakeLockSentinel.released) {
+    try { await wakeLockSentinel.release(); } catch(e) {}
+  }
+  wakeLockSentinel = null;
+}
+// Re-requisita se a aba voltar ao foreground (Wake Lock é auto-released ao sair).
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && (restTimerState || sessionTimerIntervalId)) {
+    requestWakeLock();
+  }
+});
+
+// ─── v4.1 — SERVICE WORKER OFFLINE-FIRST (via Blob URL) ───────
+// PWA single-file: registra SW inline para cache controlado.
+// Estratégia: cache-first com network fallback. Permite reabrir offline
+// mesmo se o GitHub Pages estiver inacessível.
+(function registerInlineSW() {
+  if (!('serviceWorker' in navigator)) return;
+  // file:// não suporta SW. Skip se rodando localmente.
+  if (location.protocol === 'file:') return;
+
+  const SW_VERSION = 'v4.1.0';
+  const swCode = `
+    const CACHE_NAME = 'marcel-tracker-${SW_VERSION}';
+    const APP_URL = '${location.pathname}';
+    self.addEventListener('install', (e) => {
+      e.waitUntil(caches.open(CACHE_NAME).then(c => c.add(APP_URL)).catch(()=>{}));
+      self.skipWaiting();
+    });
+    self.addEventListener('activate', (e) => {
+      e.waitUntil(caches.keys().then(keys => Promise.all(
+        keys.filter(k => k.startsWith('marcel-tracker-') && k !== CACHE_NAME).map(k => caches.delete(k))
+      )));
+      self.clients.claim();
+    });
+    self.addEventListener('fetch', (e) => {
+      const url = new URL(e.request.url);
+      // Só intercepta a própria página do app.
+      if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
+      e.respondWith(
+        caches.match(e.request).then(cached => cached || fetch(e.request).then(resp => {
+          if (resp.ok && resp.type === 'basic') {
+            const clone = resp.clone();
+            caches.open(CACHE_NAME).then(c => c.put(e.request, clone)).catch(()=>{});
+          }
+          return resp;
+        }).catch(() => caches.match(APP_URL)))
+      );
+    });
+  `;
+  try {
+    const blob = new Blob([swCode], { type: 'application/javascript' });
+    const url = URL.createObjectURL(blob);
+    navigator.serviceWorker.register(url).catch(() => {
+      // Falha silenciosa: SW é otimização, não bloqueia o app.
+    });
+  } catch(e) {}
+})();
+
 // ─── HELPERS ──────────────────────────────────────────────────
 function $id(id) { return document.getElementById(id); }
 function $q(sel, root) { return (root || document).querySelector(sel); }
@@ -1515,7 +1819,20 @@ function initTabs() {
     // P3.6: pequena bolinha âmbar sobreposta indicando rascunho pendente
     btn.innerHTML = pending.has(t) ? `${label}<span class="tab-draft-dot" aria-label="rascunho pendente"></span>` : label;
     btn.setAttribute("aria-label", pending.has(t) ? `${label} — rascunho pendente` : label);
-    btn.onclick = () => { currentTab = t; openExId = null; _overshootWarned = {}; renderAll(); };
+    btn.onclick = () => {
+      currentTab = t; openExId = null; _overshootWarned = {};
+      // v4.1: ao trocar de aba, atualiza session chip (esconde se não-treino).
+      // Wake lock também é re-avaliado: solta se sair de treino, requisita se entrar.
+      if (['A','B','C','D'].includes(t)) {
+        if (sessionTimerIntervalId == null) ensureSessionTimerInterval();
+        requestWakeLock();
+      } else {
+        stopSessionTimer();
+        // Não solta wake lock se ainda há rest timer ativo
+        if (!restTimerState) releaseWakeLock();
+      }
+      renderAll();
+    };
     wrap.appendChild(btn);
   });
 }
@@ -1688,15 +2005,13 @@ function renderTreino(main) {
 
     if (ex.note) setsHTML += `<div class="set-note">ℹ ${ex.note}</div>`;
 
-    // Timer countdown row
-    const timerState = timers[ex.id];
-    const timerClass = timerState ? (timerState.elapsed > timerState.target ? "overtime" : "running") : "idle";
-    const timerText = timerState ? fmtMMSS(timerState.target - timerState.elapsed) : fmtMMSS(t.restSec);
+    // v4.1: timer inline removido — descanso agora é modal global auto-acionado
+    // ao marcar ✓ verde. Mantemos botão "Iniciar manualmente" como escape hatch
+    // (caso o usuário queira disparar o timer sem marcar uma série).
     setsHTML += `<div class="timer-row">
-      <div class="timer-label">Descanso (${t.rec})</div>
-      <div class="timer-display ${timerClass}" id="timer_${ex.id}">${timerText}</div>
-      <button class="timer-btn timer-start" id="tstart_${ex.id}" onclick="startTimer('${ex.id}',${t.restSec})" style="display:${timerState?'none':'block'};">Iniciar</button>
-      <button class="timer-btn timer-stop" id="tstop_${ex.id}" onclick="stopTimer('${ex.id}')" style="display:${timerState?'block':'none'};">Stop</button>
+      <div class="timer-label">Descanso ${t.rec}</div>
+      <div style="flex:1;"></div>
+      <button class="timer-btn timer-start" onclick="startRestTimer('${ex.id}', 0)" aria-label="Iniciar timer de descanso manualmente">⏱ Iniciar</button>
     </div>`;
 
     html += `<div class="ex-card ${isOpen ? 'open' : ''} ${isExCompleted ? 'completed' : ''}" id="excard_${ex.id}">
@@ -1720,21 +2035,11 @@ function renderTreino(main) {
 
   main.innerHTML = html;
 
-  // Bug 5 fix: re-sincroniza displays de timers ativos após rebuild do DOM
-  Object.keys(timers).forEach(exId => {
-    const tk = timers[exId];
-    if (!tk) return;
-    const display = $id("timer_" + exId);
-    const btnStart = $id("tstart_" + exId);
-    const btnStop  = $id("tstop_"  + exId);
-    if (!display) return;
-    tk.elapsed = Math.floor((Date.now() - tk.startMs) / 1000);
-    const remaining = tk.target - tk.elapsed;
-    display.textContent = fmtMMSS(remaining);
-    display.className = "timer-display " + (remaining > 0 ? "running" : "overtime");
-    if (btnStart) btnStart.style.display = "none";
-    if (btnStop)  btnStop.style.display  = "block";
-  });
+  // v4.1: sync do session-time chip ao re-render
+  ensureSessionTimerInterval();
+  updateSessionChip();
+  // v4.1: sync do rest timer (mantém chip visível se o rest está rodando)
+  updateRestUI();
 }
 
 function formatEMGSummary(exId) {
@@ -2127,6 +2432,9 @@ function toggleCheck(exId, setIdx) {
   // v3.1 — Verificação de overshoot em tempo real (Remmert 2025)
   if (isDone) {
     checkOvershootRealtime();
+    // v4.1: auto-trigger do rest timer modal + session-time chip
+    triggerRestModalForSet(exId, setIdx);
+    startSessionTimer();
   }
   updateProgressIndicator();
 }
@@ -2215,70 +2523,340 @@ function setRIR(value) {
   updateProgressIndicator();
 }
 
-// ─── TIMER COUNTDOWN COM BEEP + OVERTIME ──────────────────────
-// Cada exercício tem timer próprio (mapa) — permite paralelo nos alternados
-function startTimer(exId, targetSec) {
-  // Para timer anterior do mesmo exercício se existir
-  if (timers[exId]?.intervalId) clearInterval(timers[exId].intervalId);
+// ─── v4.1 — REST TIMER MODAL (global, auto-trigger no ✓) ──────
+// Substitui o timer inline por modal único minimizável.
+// Acionado automaticamente ao marcar ✓ verde via `triggerRestModalForSet`.
+// Comportamento (definido por Marcel):
+//   1. Auto-trigger no ✓.
+//   2. Undo (desfazer) NÃO mata o timer — continua rodando.
+//   3. ✓ rápido em sucessão (drop-set) → timer NÃO reinicia, continua.
+//   4. Modal minimizável → chip flutuante no rodapé.
+//   5. Conteúdo enriquecido: próxima série, target reps, último PR, dica RIR.
+//
+// Estado: restTimerState ou null.
 
-  const display = $id("timer_" + exId);
-  const btnStart = $id("tstart_" + exId);
-  const btnStop = $id("tstop_" + exId);
-  if (!display) return;
+function openRestModal() {
+  $id('rest-modal-overlay')?.classList.add('visible');
+}
+function minimizeRestModal() {
+  $id('rest-modal-overlay')?.classList.remove('visible');
+  // Chip aparece automaticamente via updateRestUI se há timer ativo.
+  updateRestUI();
+}
+function restoreRestModal() {
+  if (!restTimerState) return;
+  // Reaplica o conteúdo enriquecido (caso o exercício/série tenham mudado).
+  populateRestModalContent();
+  openRestModal();
+}
+function onRestModalBackdrop(ev) {
+  if (ev && ev.target.id !== 'rest-modal-overlay') return;
+  minimizeRestModal();
+}
 
-  // Inicializa AudioContext sob gesto do usuário (necessário em iOS)
+// Trigger principal: chamado pelo toggleCheck quando uma série é marcada ✓.
+// Se já houver timer ativo, NÃO reinicia (Marcel: drop-set → timer continua).
+function triggerRestModalForSet(exId, setIdx) {
+  // Se já há timer rodando, atualiza apenas o contexto (qual exercício/série deu trigger)
+  // mas mantém o relógio. Drop-set scenario.
+  if (restTimerState && restTimerState.intervalId) {
+    // Atualiza referência da série atual para o conteúdo do modal refletir
+    // a série mais recente marcada (não a primeira).
+    restTimerState.exId = exId;
+    restTimerState.setIdx = setIdx;
+    refreshNextSetInfo();
+    populateRestModalContent();
+    return;
+  }
+  startRestTimer(exId, setIdx);
+}
+
+function startRestTimer(exId, setIdx) {
+  const t = TREINOS[currentTab];
+  const ex = t?.exercises.find(e => e.id === exId);
+  if (!ex) return;
+  const targetSec = t.restSec || 120;
+  // Audio context só inicializa sob gesto do usuário (iOS)
   getAudioCtx();
+  // Limpa estado anterior se existir
+  if (restTimerState?.intervalId) clearInterval(restTimerState.intervalId);
 
-  const startMs = Date.now();
-  timers[exId] = { startMs, target: targetSec, elapsed: 0, beeped: false, intervalId: null };
-  btnStart.style.display = "none";
-  btnStop.style.display = "block";
-  display.classList.remove("idle", "done", "overtime");
-  display.classList.add("running");
-  display.textContent = fmtMMSS(targetSec);
+  restTimerState = {
+    exId, exName: ex.name, setIdx, totalSets: ex.sets.length,
+    targetSec, startMs: Date.now(), intervalId: null,
+    beeped: false, completed: false, treinoKey: currentTab,
+    nextSetReps: null, nextSetTargetLoad: null, lastPR: null
+  };
+  refreshNextSetInfo();
+  populateRestModalContent();
+  openRestModal();
+  // Wake Lock para manter a tela ativa durante o descanso
+  requestWakeLock();
 
-  timers[exId].intervalId = setInterval(() => {
-    const tk = timers[exId];
-    if (!tk) return;
-    tk.elapsed = Math.floor((Date.now() - tk.startMs) / 1000);
-    const remaining = tk.target - tk.elapsed;
-    if (remaining > 0) {
-      display.textContent = fmtMMSS(remaining);
+  // Salva snapshot no draft para sobreviver a recargas
+  saveDraftField('_restTimerStart', restTimerState.startMs);
+  saveDraftField('_restTimerExId', exId);
+  saveDraftField('_restTimerSetIdx', setIdx);
+
+  restTimerState.intervalId = setInterval(tickRestTimer, 250);
+  tickRestTimer();
+}
+
+function tickRestTimer() {
+  if (!restTimerState) return;
+  const elapsed = Math.floor((Date.now() - restTimerState.startMs) / 1000);
+  const remaining = restTimerState.targetSec - elapsed;
+  const clock = $id('rest-modal-clock');
+  const chipTime = $id('rest-chip-time');
+  const chipLabel = $id('rest-chip-label');
+  const chip = $id('rest-chip');
+  const progressFill = $id('rest-modal-progress-fill');
+  const timeText = fmtMMSS(remaining);
+  if (clock) clock.textContent = timeText;
+  if (chipTime) chipTime.textContent = timeText;
+
+  // Atualiza progresso 0–100 → cap em 100% quando overtime
+  const pct = Math.min(100, Math.max(0, (elapsed / restTimerState.targetSec) * 100));
+  if (progressFill) progressFill.style.width = pct + '%';
+
+  if (remaining > 0) {
+    if (clock) { clock.classList.remove('overtime', 'done'); clock.classList.add('running'); }
+    if (progressFill) progressFill.classList.remove('overtime');
+    if (chip) chip.classList.remove('overtime');
+    if (chipLabel) chipLabel.textContent = 'descanso';
+  } else {
+    if (!restTimerState.beeped) {
+      restTimerState.beeped = true;
+      restTimerState.completed = true;
+      beepDone();
+      vibrate([60, 40, 60]);
+      showToast(`⏱ Descanso completo · ${restTimerState.exName}`, 'success');
+    }
+    if (clock) { clock.classList.remove('running'); clock.classList.add('overtime'); }
+    if (progressFill) progressFill.classList.add('overtime');
+    if (chip) chip.classList.add('overtime');
+    if (chipLabel) chipLabel.textContent = 'overtime';
+    // Auto-stop após 2× target em overtime (CPU savings)
+    if (elapsed > restTimerState.targetSec * 3) {
+      stopRestTimer();
+      showToast(`⏱ Timer auto-encerrado após ${Math.round(restTimerState.targetSec*2/60)}min de overtime`, 'warn');
+      return;
+    }
+  }
+  updateRestUI();
+}
+
+function refreshNextSetInfo() {
+  if (!restTimerState) return;
+  const t = TREINOS[restTimerState.treinoKey || currentTab];
+  const ex = t?.exercises.find(e => e.id === restTimerState.exId);
+  if (!ex) return;
+  // Próxima série = setIdx + 1 (se houver)
+  const nextIdx = restTimerState.setIdx + 1;
+  const nextSet = ex.sets[nextIdx];
+  restTimerState.nextSetReps = nextSet ? nextSet.reps : null;
+  restTimerState.nextSetIdx = nextIdx;
+  // Última carga digitada (draft) ou histórica
+  const draft = loadDraft('draft_' + (restTimerState.treinoKey || currentTab));
+  const exDraft = draft.sets?.[restTimerState.exId] || {};
+  const justLoad = parseFloat(exDraft[`s${restTimerState.setIdx}_load`]) || null;
+  const justReps = parseInt(exDraft[`s${restTimerState.setIdx}_reps`]) || null;
+  const justRir = exDraft[`s${restTimerState.setIdx}_rir`];
+  restTimerState.justLoad = justLoad;
+  restTimerState.justReps = justReps;
+  restTimerState.justRir = justRir;
+  // PR atual
+  const prs = loadPRs();
+  restTimerState.lastPR = prs[restTimerState.exId] || null;
+}
+
+function populateRestModalContent() {
+  if (!restTimerState) return;
+  const exName = $id('rest-modal-exname');
+  const setInfo = $id('rest-modal-setinfo');
+  const meta = $id('rest-modal-meta');
+  const foot = $id('rest-modal-foot');
+  if (exName) exName.textContent = restTimerState.exName;
+
+  const completedLabel = `Série ${restTimerState.setIdx + 1}/${restTimerState.totalSets} concluída`;
+  const justLoad = restTimerState.justLoad;
+  const justReps = restTimerState.justReps;
+  const justRir = restTimerState.justRir;
+  let lastSetParts = [];
+  if (justLoad) lastSetParts.push(`${justLoad}kg`);
+  if (justReps) lastSetParts.push(`× ${justReps}`);
+  if (justRir !== undefined && justRir !== null && justRir !== '') lastSetParts.push(`· RIR ${justRir}`);
+  if (setInfo) setInfo.textContent = completedLabel + (lastSetParts.length ? ` · ${lastSetParts.join(' ')}` : '');
+
+  // Meta enriquecida: próxima série + último PR + dica RIR
+  if (meta) {
+    let html = '';
+    if (restTimerState.nextSetReps != null) {
+      html += `<div class="rest-modal-meta-row">
+        <span>Próxima série</span>
+        <span><strong>${restTimerState.nextSetIdx + 1}/${restTimerState.totalSets}</strong> · alvo ${restTimerState.nextSetReps} reps</span>
+      </div>`;
     } else {
-      // Atingiu zero
-      if (!tk.beeped) {
-        tk.beeped = true;
-        beepDone();
-        showToast(`⏱ Descanso completo · ${TREINOS[currentTab].exercises.find(e=>e.id===exId)?.name || exId}`, "success");
-        display.classList.remove("running");
-        display.classList.add("overtime");
-      }
-      // Continua contando overtime (negativo)
-      display.textContent = fmtMMSS(remaining);
-      // v4.0 (P3.1): auto-stop em -2×restSec — overtime máximo razoável.
-      // Acima disso, o usuário esqueceu o timer; melhor zerar e parar o consumo de CPU.
-      if (tk.elapsed > tk.target * 3) {  // elapsed > 3× target  ⇔  remaining < -2× target
-        stopTimer(exId);
-        showToast(`⏱ Timer auto-encerrado após ${(tk.target * 2 / 60).toFixed(0)}min de overtime`, "warn");
+      html += `<div class="rest-modal-meta-row">
+        <span>Próxima série</span>
+        <span><strong>Última do exercício ✓</strong></span>
+      </div>`;
+    }
+    if (restTimerState.lastPR) {
+      const pr = restTimerState.lastPR;
+      html += `<div class="rest-modal-meta-row">
+        <span>PR atual</span>
+        <span><strong>${pr.load}kg × ${pr.reps}</strong> · e1RM ${pr.e1rm.toFixed(1)}</span>
+      </div>`;
+    }
+    // Dica RIR baseada no que foi marcado: se foi RIR alto, sinaliza margem para próxima série
+    if (justRir !== undefined && justRir !== null && justRir !== '') {
+      const rirNum = parseInt(justRir);
+      let hint = '';
+      if (rirNum === 0) hint = 'Falha técnica registrada — atenção para forma na próxima.';
+      else if (rirNum >= 4) hint = 'RIR alto — possível subir carga ou reps na próxima.';
+      else if (rirNum >= 1 && rirNum <= 2) hint = 'Zona ótima de estímulo (RIR 0–2).';
+      if (hint) {
+        html += `<div class="rest-modal-meta-row" style="margin-top:6px;padding-top:6px;border-top:0.5px solid var(--border);">
+          <span style="font-style:italic;opacity:0.85;">💡 ${hint}</span>
+        </div>`;
       }
     }
-  }, 250);
-}
-function stopTimer(exId) {
-  const tk = timers[exId];
-  if (tk?.intervalId) clearInterval(tk.intervalId);
-  delete timers[exId];
-  const display = $id("timer_" + exId);
-  const btnStart = $id("tstart_" + exId);
-  const btnStop = $id("tstop_" + exId);
-  if (display) {
-    const restSec = TREINOS[currentTab]?.restSec || 120;
-    display.textContent = fmtMMSS(restSec);
-    display.className = "timer-display idle";
+    meta.innerHTML = html;
   }
-  if (btnStart) btnStart.style.display = "block";
-  if (btnStop) btnStop.style.display = "none";
+  if (foot) foot.textContent = `Target ${fmtMMSS(restTimerState.targetSec)} · ${TREINOS[restTimerState.treinoKey || currentTab]?.rec || ''}`;
 }
+
+function stopRestTimer() {
+  if (restTimerState?.intervalId) clearInterval(restTimerState.intervalId);
+  restTimerState = null;
+  $id('rest-modal-overlay')?.classList.remove('visible');
+  // Limpa draft persistente
+  saveDraftField('_restTimerStart', null);
+  saveDraftField('_restTimerExId', null);
+  saveDraftField('_restTimerSetIdx', null);
+  updateRestUI();
+  releaseWakeLock();
+}
+
+function updateRestUI() {
+  const chip = $id('rest-chip');
+  if (!chip) return;
+  const modalOpen = $id('rest-modal-overlay')?.classList.contains('visible');
+  if (restTimerState && !modalOpen) {
+    chip.classList.add('visible');
+  } else {
+    chip.classList.remove('visible');
+  }
+}
+
+// Restaura timer pendente após recarregar a página (se o usuário fechou e abriu o app).
+function restorePendingRestTimer() {
+  try {
+    const draft = loadDraft('draft_' + currentTab);
+    const startMs = draft._restTimerStart;
+    const exId = draft._restTimerExId;
+    const setIdx = draft._restTimerSetIdx;
+    if (!startMs || !exId || setIdx == null) return;
+    const t = TREINOS[currentTab];
+    const ex = t?.exercises.find(e => e.id === exId);
+    if (!ex) return;
+    const targetSec = t.restSec || 120;
+    const elapsed = Math.floor((Date.now() - startMs) / 1000);
+    // Se já passou >3× target, descarta — o usuário esqueceu o tracker aberto.
+    if (elapsed > targetSec * 3) {
+      saveDraftField('_restTimerStart', null);
+      saveDraftField('_restTimerExId', null);
+      saveDraftField('_restTimerSetIdx', null);
+      return;
+    }
+    restTimerState = {
+      exId, exName: ex.name, setIdx, totalSets: ex.sets.length,
+      targetSec, startMs, intervalId: null,
+      beeped: elapsed >= targetSec, completed: elapsed >= targetSec,
+      treinoKey: currentTab,
+      nextSetReps: null, nextSetTargetLoad: null, lastPR: null
+    };
+    refreshNextSetInfo();
+    populateRestModalContent();
+    restTimerState.intervalId = setInterval(tickRestTimer, 250);
+    tickRestTimer();
+    // Restaurado em chip minimizado por padrão — não força modal aberto
+    updateRestUI();
+  } catch(e) {}
+}
+
+// Back-compat: os botões inline antigos (caso usuário ainda os veja em alguma aba) chamam
+// startTimer/stopTimer. Redirecionamos para o novo modal.
+function startTimer(exId, targetSec) {
+  // Encontra o último setIdx que pode ter sido marcado, fallback 0
+  const t = TREINOS[currentTab];
+  const ex = t?.exercises.find(e => e.id === exId);
+  if (!ex) return;
+  // Heurística: primeira série não marcada como "atual" (ou última marcada)
+  const draft = loadDraft('draft_' + currentTab);
+  const exDraft = draft.sets?.[exId] || {};
+  let setIdx = 0;
+  for (let i = ex.sets.length - 1; i >= 0; i--) {
+    if (exDraft[`c${i}`] === '1') { setIdx = i; break; }
+  }
+  startRestTimer(exId, setIdx);
+}
+function stopTimer(exId) { stopRestTimer(); }
+
+// ─── v4.1 — SESSION-TIME CHIP (chip flutuante de tempo total da sessão) ─────
+// Mostra tempo decorrido desde o primeiro ✓ marcado na sessão atual.
+// Persistido em draft._sessionStart. Para apenas ao finalizar a sessão ou trocar de aba.
+function startSessionTimer() {
+  const draft = loadDraft('draft_' + currentTab);
+  if (!draft._sessionStart) {
+    saveDraftField('_sessionStart', Date.now());
+  }
+  ensureSessionTimerInterval();
+}
+function ensureSessionTimerInterval() {
+  if (sessionTimerIntervalId) return;
+  updateSessionChip();
+  sessionTimerIntervalId = setInterval(updateSessionChip, 1000);
+}
+function stopSessionTimer() {
+  if (sessionTimerIntervalId) {
+    clearInterval(sessionTimerIntervalId);
+    sessionTimerIntervalId = null;
+  }
+  const chip = $id('session-chip');
+  if (chip) chip.classList.remove('visible');
+}
+function updateSessionChip() {
+  // Aba ativa precisa ser uma de treino
+  if (!['A','B','C','D'].includes(currentTab)) {
+    const chip = $id('session-chip');
+    if (chip) chip.classList.remove('visible');
+    return;
+  }
+  const draft = loadDraft('draft_' + currentTab);
+  const start = draft._sessionStart;
+  const chip = $id('session-chip');
+  const time = $id('session-chip-time');
+  if (!chip || !time) return;
+  if (!start) {
+    chip.classList.remove('visible');
+    chip.setAttribute('aria-hidden', 'true');
+    return;
+  }
+  const elapsed = Math.floor((Date.now() - start) / 1000);
+  time.textContent = fmtMMSS(elapsed);
+  chip.classList.add('visible');
+  chip.setAttribute('aria-hidden', 'false');
+}
+// Reseta o session timer ao finalizar a sessão (chamado em finishSession).
+function resetSessionTimerForCurrentTab() {
+  saveDraftField('_sessionStart', null);
+  stopSessionTimer();
+}
+
+// ─── TIMER COUNTDOWN COM BEEP + OVERTIME (legado v4.0 — mantido como fallback) ──
+
 
 // ─── FINALIZAR SESSÃO ─────────────────────────────────────────
 function finishSession() {
@@ -2430,8 +3008,13 @@ function finishSession() {
   localStorage.removeItem(draftStorageKey(currentTab));
   _overshootWarned = {};  // reseta tracking de overshoot p/ próxima sessão
 
-  // Para todos os timers ativos
-  Object.keys(timers).forEach(stopTimer);
+  // v4.1: para o rest timer e o session timer, libera wake lock
+  if (restTimerState) stopRestTimer();
+  resetSessionTimerForCurrentTab();
+  releaseWakeLock();
+  // Limpa timers legados se ainda houver (back-compat)
+  Object.keys(timers).forEach(k => { if (timers[k]?.intervalId) clearInterval(timers[k].intervalId); });
+  timers = {};
 
   vibrate([60, 40, 60, 40, 100]);
   showSessionSummary(entry);
@@ -2889,36 +3472,31 @@ function buildVolumeHTML(hist) {
   return html;
 }
 
+// ─── v4.1 — CHART REGISTRY PATTERN ────────────────────────────
+// Cada gráfico é um descriptor `{ id, title, minDataCheck, renderEmpty, build }`.
+// Permite adicionar/remover gráficos editando uma lista — sem duplicar HTML/JS.
+// Estado compartilhado: `histSnapshot`, `exercisesSnapshot`, `byTreinoSnapshot`.
+
 function buildGraficosHTML(hist, byTreino) {
   const allEx = ALL_EX_FLAT;
   const exercisesWithData = allEx.filter(ex => hist.some(h => h.exVolumes && h.exVolumes[ex.id]));
   let html = `<div class="chart-section">`;
-
-  html += `<div class="chart-card"><div class="chart-title">Volume total por sessão (kg)</div>`;
-  if (hist.length < 2) html += `<div class="chart-empty">Mínimo 2 sessões.</div>`;
-  else html += `<div class="chart-wrap"><canvas class="chart" id="chart-vol" height="180"></canvas></div>`;
-  html += `</div>`;
-
-  html += `<div class="chart-card"><div class="chart-title">Volume médio por treino (kg)</div>`;
-  if (Object.values(byTreino).every(arr => arr.length === 0)) html += `<div class="chart-empty">Nenhuma sessão.</div>`;
-  else html += `<div class="chart-wrap"><canvas class="chart" id="chart-treino" height="160"></canvas></div>`;
-  html += `</div>`;
-
-  html += `<div class="chart-card"><div class="chart-title">Progressão por exercício (e1RM)</div>`;
-  if (exercisesWithData.length === 0) html += `<div class="chart-empty">Sem dados.</div>`;
-  else {
-    html += `<select class="chart-select" id="ex-select" onchange="updateExChart()">`;
-    exercisesWithData.forEach(ex => { html += `<option value="${ex.id}">${ex.name}</option>`; });
-    html += `</select><div class="chart-wrap"><canvas class="chart" id="chart-ex" height="180"></canvas></div>`;
+  for (const ch of CHART_REGISTRY) {
+    html += `<div class="chart-card"><div class="chart-title">${ch.title}</div>`;
+    // Header opcional (selector etc.)
+    if (typeof ch.htmlHeader === 'function') {
+      html += ch.htmlHeader({ hist, byTreino, exercisesWithData });
+    }
+    const ok = ch.dataCheck({ hist, byTreino, exercisesWithData });
+    if (!ok.ok) {
+      html += `<div class="chart-empty">${ok.msg || 'Sem dados.'}</div>`;
+    } else if (ch.kind === 'canvas') {
+      html += `<div class="chart-wrap"><canvas class="chart" id="${ch.id}" height="${ch.height || 180}"></canvas></div>`;
+    } else if (ch.kind === 'html') {
+      html += `<div id="${ch.id}-host"></div>`;
+    }
+    html += `</div>`;
   }
-  html += `</div>`;
-
-  html += `<div class="chart-card"><div class="chart-title">Peso corporal × Sono</div>`;
-  const bwData = hist.filter(h => h.bodyweight);
-  if (bwData.length < 2) html += `<div class="chart-empty">Registre peso corporal em ao menos 2 sessões.</div>`;
-  else html += `<div class="chart-wrap"><canvas class="chart" id="chart-bw" height="180"></canvas></div>`;
-  html += `</div>`;
-
   html += `</div><div class="spacer"></div>`;
   return html;
 }
@@ -2952,25 +3530,41 @@ function chartBase(id, type, labels, datasets, opts={}) {
 
 let exChartInstance = null;
 let bwChartInstance = null;
+let recoveryTimelineChartInstance = null;
+let volumeRadarChartInstance = null;
 let histSnapshot = [];
 let exercisesSnapshot = [];
+let byTreinoSnapshot = {};
 
 function buildCharts(hist, byTreino, exercisesWithData) {
   histSnapshot = hist;
   exercisesSnapshot = exercisesWithData;
-
-  // 1: volume por sessão (linha)
-  if (hist.length >= 2) {
-    const labels = hist.map(h => h.date.slice(0,5));
-    const data = hist.map(h => h.totalLoad);
-    chartBase('chart-vol', 'line', labels, [{
-      data, borderColor: '#EF9F27', backgroundColor: 'rgba(239,159,39,0.08)',
-      borderWidth: 2, pointBackgroundColor: '#EF9F27', pointRadius: 3, pointHoverRadius: 5,
-      fill: true, tension: 0.3
-    }], { tooltipCallbacks: { label: ctx => ` ${ctx.parsed.y.toLocaleString('pt-BR')} kg` } });
+  byTreinoSnapshot = byTreino;
+  for (const ch of CHART_REGISTRY) {
+    try {
+      if (!ch.dataCheck({ hist, byTreino, exercisesWithData }).ok) continue;
+      ch.build({ hist, byTreino, exercisesWithData });
+    } catch(e) {
+      console.warn('Chart build failed:', ch.id, e);
+    }
   }
+}
 
-  // 2: volume médio por treino (barra)
+// ─── CHART BUILDERS ───────────────────────────────────────────
+
+// 1. Volume total por sessão
+function buildChart_vol({ hist }) {
+  const labels = hist.map(h => h.date.slice(0,5));
+  const data = hist.map(h => h.totalLoad);
+  chartBase('chart-vol', 'line', labels, [{
+    data, borderColor: '#EF9F27', backgroundColor: 'rgba(239,159,39,0.08)',
+    borderWidth: 2, pointBackgroundColor: '#EF9F27', pointRadius: 3, pointHoverRadius: 5,
+    fill: true, tension: 0.3
+  }], { tooltipCallbacks: { label: ctx => ` ${ctx.parsed.y.toLocaleString('pt-BR')} kg` } });
+}
+
+// 2. Volume médio por treino A/B/C/D
+function buildChart_treino({ byTreino }) {
   const treinoLabels = ['A','B','C','D'];
   const treinoAvg = treinoLabels.map(k => {
     const sessions = byTreino[k];
@@ -2982,39 +3576,240 @@ function buildCharts(hist, byTreino, exercisesWithData) {
     data: treinoAvg, backgroundColor: barColors,
     borderColor: barColors.map(c => c.replace('0.7','1')), borderWidth: 1, borderRadius: 4
   }], { tooltipCallbacks: { label: ctx => ` ${ctx.parsed.y.toLocaleString('pt-BR')} kg` } });
-
-  // 3: exercício selecionado — agora plotando e1RM
-  if (exercisesWithData.length > 0) updateExChart();
-
-  // 4: peso corporal + moving average 7d (Melhoria 6)
-  const bwData = hist.filter(h => h.bodyweight);
-  if (bwData.length >= 2) {
-    const labels = bwData.map(h => h.date.slice(0,5));
-    const rawData = bwData.map(h => h.bodyweight);
-    // Moving average 7 pontos (ou todos se < 7)
-    const maData = rawData.map((_, i) => {
-      const window = rawData.slice(Math.max(0, i - 6), i + 1);
-      return +(window.reduce((a,b) => a+b, 0) / window.length).toFixed(2);
-    });
-    chartBase('chart-bw', 'line', labels, [
-      {
-        data: rawData, label: "Peso (kg)", borderColor: '#1D9E75',
-        backgroundColor: 'rgba(29,158,117,0.06)', borderWidth: 1.5,
-        pointBackgroundColor: '#1D9E75', pointRadius: 2.5, pointHoverRadius: 5,
-        fill: true, tension: 0.2
-      },
-      {
-        data: maData, label: "Média 7d", borderColor: '#FAC775',
-        backgroundColor: 'transparent', borderWidth: 2,
-        pointRadius: 0, pointHoverRadius: 4,
-        fill: false, tension: 0.4, borderDash: [4, 3]
-      }
-    ], {
-      legend: true,
-      tooltipCallbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(1)} kg` }
-    });
-  }
 }
+
+// 3. e1RM por exercício (seletor)
+function buildChart_ex() {
+  if (exercisesSnapshot.length > 0) updateExChart();
+}
+
+// 4. Peso corporal × Média 7d
+function buildChart_bw({ hist }) {
+  const bwData = hist.filter(h => h.bodyweight);
+  if (bwData.length < 2) return;
+  const labels = bwData.map(h => h.date.slice(0,5));
+  const rawData = bwData.map(h => h.bodyweight);
+  const maData = rawData.map((_, i) => {
+    const window = rawData.slice(Math.max(0, i - 6), i + 1);
+    return +(window.reduce((a,b) => a+b, 0) / window.length).toFixed(2);
+  });
+  chartBase('chart-bw', 'line', labels, [
+    { data: rawData, label: "Peso (kg)", borderColor: '#1D9E75',
+      backgroundColor: 'rgba(29,158,117,0.06)', borderWidth: 1.5,
+      pointBackgroundColor: '#1D9E75', pointRadius: 2.5, pointHoverRadius: 5,
+      fill: true, tension: 0.2 },
+    { data: maData, label: "Média 7d", borderColor: '#FAC775',
+      backgroundColor: 'transparent', borderWidth: 2,
+      pointRadius: 0, pointHoverRadius: 4,
+      fill: false, tension: 0.4, borderDash: [4, 3] }
+  ], { legend: true, tooltipCallbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(1)} kg` } });
+}
+
+// ─── v4.1 — G1: Recovery Score timeline (linha multi-série) ─────────────────
+// Calcula o recovery score em snapshots de cada sessão histórica, mostrando
+// como cada cluster recuperou ao longo do tempo. Critério clinico para detectar
+// saturação crônica (CPK elevado, ferritina ↓ contexto Marcel).
+function buildChart_recoveryTimeline({ hist }) {
+  if (recoveryTimelineChartInstance) { recoveryTimelineChartInstance.destroy(); recoveryTimelineChartInstance = null; }
+  // Para cada sessão, computa o recovery score de cada grupo NO momento dessa sessão.
+  // Pesado (N × G chamadas), mas N é limitado em ~50-100 sessões e G=16 — ok no client.
+  const sortedHist = [...hist].sort((a,b) => (a.ts||0) - (b.ts||0));
+  if (sortedHist.length < 3) return;
+
+  // Mostra só os 4 clusters principais para não poluir
+  const groupsToShow = [
+    { key: 'peito',              label: 'Peito',     color: '#EF9F27', cluster: 'fast' },
+    { key: 'costas',             label: 'Costas',    color: '#378ADD', cluster: 'intermediate' },
+    { key: 'quadriceps',         label: 'Quad',      color: '#1D9E75', cluster: 'intermediate' },
+    { key: 'isquios',            label: 'Isquios',   color: '#A07ACC', cluster: 'slow' },
+  ];
+  const labels = sortedHist.map(h => h.date.slice(0,5));
+  const datasets = groupsToShow.map(g => {
+    const data = sortedHist.map(s => {
+      // Snapshot do recovery score do grupo AO LONGO da história — usa a história
+      // ATÉ aquele ponto, com nowMs = ts da sessão.
+      const histUpTo = sortedHist.filter(h => (h.ts||0) <= (s.ts||0));
+      const rec = calculateRecoveryScore(g.key, histUpTo, s.ts || Date.now());
+      return rec ? rec.score : null;
+    });
+    return {
+      label: g.label, data,
+      borderColor: g.color, backgroundColor: g.color + '20',
+      borderWidth: 1.8, pointRadius: 2, pointHoverRadius: 4,
+      pointBackgroundColor: g.color,
+      fill: false, tension: 0.25, spanGaps: true
+    };
+  });
+
+  recoveryTimelineChartInstance = chartBase('chart-recovery-timeline', 'line', labels, datasets, {
+    legend: true,
+    tooltipCallbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y + '%' : '—'}` },
+    scales: {
+      x: { ticks: { color: CHART_DEFAULTS.textColor, font: { size: 9 }, maxRotation: 0, autoSkipPadding: 12 }, grid: { color: CHART_DEFAULTS.gridColor } },
+      y: { min: 0, max: 100, ticks: { color: CHART_DEFAULTS.textColor, font: { size: 9 }, stepSize: 20, callback: v => v + '%' }, grid: { color: CHART_DEFAULTS.gridColor } }
+    }
+  });
+}
+
+// ─── v4.1 — G2: Radar de volume semanal MEV/MAV/MRV (por grupo) ─────────────
+// Mostra séries efetivas semana atual de cada grupo (16 eixos),
+// com referências MEV e MAV sobrepostas. Visual de gaps e overshoot em uma imagem.
+function buildChart_volumeRadar({ hist }) {
+  if (volumeRadarChartInstance) { volumeRadarChartInstance.destroy(); volumeRadarChartInstance = null; }
+  // Reutiliza getWeeklyVolume para a última semana (rolling 7d)
+  const weekly = getWeeklyVolume(hist, 1);
+  // Filtra só grupos relevantes (skip aqueles sem landmark adequado ou label vazio)
+  const groupKeys = Object.keys(VOLUME_LANDMARKS_BASE).filter(k => VOLUME_LANDMARKS_BASE[k].mev > 0);
+  const labels = groupKeys.map(k => VOLUME_LANDMARKS_BASE[k].label);
+  const currentData = groupKeys.map(k => +(weekly[k] || 0).toFixed(1));
+  const mevData = groupKeys.map(k => VOLUME_LANDMARKS_BASE[k].mev);
+  const mavData = groupKeys.map(k => VOLUME_LANDMARKS_BASE[k].mav);
+
+  // Escala dinâmica baseada em MAV ajustado (enhanced multiplier ~1.3)
+  const lm = getLandmarks(Date.now());
+  const mavAdjData = groupKeys.map(k => lm[k]?.mav || VOLUME_LANDMARKS_BASE[k].mav);
+  const maxVal = Math.max(...currentData, ...mavAdjData) * 1.15;
+
+  volumeRadarChartInstance = new Chart($id('chart-volume-radar'), {
+    type: 'radar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'MEV', data: mevData,
+          borderColor: 'rgba(136,136,133,0.6)', backgroundColor: 'rgba(136,136,133,0.05)',
+          borderWidth: 1, borderDash: [3,3], pointRadius: 0, pointHoverRadius: 0, fill: false },
+        { label: 'MAV (enhanced)', data: mavAdjData,
+          borderColor: 'rgba(99,153,34,0.55)', backgroundColor: 'rgba(99,153,34,0.08)',
+          borderWidth: 1, borderDash: [4,2], pointRadius: 0, pointHoverRadius: 0, fill: true },
+        { label: 'Semana atual', data: currentData,
+          borderColor: '#EF9F27', backgroundColor: 'rgba(239,159,39,0.18)',
+          borderWidth: 2, pointRadius: 2.5, pointHoverRadius: 5,
+          pointBackgroundColor: '#EF9F27', fill: true }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      animation: { duration: 500 },
+      plugins: {
+        legend: { display: true, labels: { color: CHART_DEFAULTS.textColor, font: { size: 10 }, boxWidth: 10, padding: 8 } },
+        tooltip: {
+          backgroundColor: '#2e2e2e', titleColor: '#f0f0ee', bodyColor: '#888885',
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.r.toFixed(1)} séries` }
+        }
+      },
+      scales: {
+        r: {
+          beginAtZero: true, suggestedMax: maxVal,
+          ticks: { color: CHART_DEFAULTS.textColor, font: { size: 8 }, stepSize: Math.ceil(maxVal/5), backdropColor: 'transparent' },
+          pointLabels: { color: CHART_DEFAULTS.textColor, font: { size: 9 } },
+          grid: { color: CHART_DEFAULTS.gridColor },
+          angleLines: { color: 'rgba(255,255,255,0.08)' }
+        }
+      }
+    }
+  });
+}
+
+// ─── v4.1 — G3: Calendar heatmap (consistência) ────────────────────────────
+// GitHub-style. Renderiza HTML grid (não Chart.js — Chart.js não tem heatmap nativo).
+function buildChart_calendarHeatmap({ hist }) {
+  const host = $id('chart-calendar-heatmap-host');
+  if (!host) return;
+  // 26 semanas (≈ 6 meses) ending today
+  const WEEKS_BACK = 26;
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  // Domingo da semana atual (início do grid). Grid: linhas = dias da semana (0=dom), colunas = semanas.
+  const dayOfWeek = today.getDay(); // 0–6
+  // Última coluna corresponde à semana atual. Vamos calcular o domingo da semana mais antiga.
+  const firstSunday = new Date(today);
+  firstSunday.setDate(today.getDate() - dayOfWeek - (WEEKS_BACK - 1) * 7);
+
+  // Agrega séries efetivas por dia (proxy de volume de estímulo)
+  const dayVol = new Map(); // ISO date → soma de séries efetivas
+  hist.forEach(h => {
+    const iso = tsToISO(h.ts) || (h.date && brToISO(h.date));
+    if (!iso) return;
+    const v = h.totalSets || 0;
+    dayVol.set(iso, (dayVol.get(iso) || 0) + v);
+  });
+
+  // Define escala discreta de 5 níveis baseada em quantis. Robusto a outliers.
+  const allVols = [...dayVol.values()].filter(v => v > 0).sort((a,b) => a-b);
+  const q = (p) => allVols[Math.floor(allVols.length * p)] || 0;
+  const t1 = q(0.25) || 8;
+  const t2 = q(0.5) || 16;
+  const t3 = q(0.75) || 24;
+  const t4 = q(0.9) || 32;
+  function levelOf(v) {
+    if (!v) return 0;
+    if (v < t1) return 1;
+    if (v < t2) return 2;
+    if (v < t3) return 3;
+    return 4;
+  }
+
+  // Build grid HTML — grid-auto-flow: column, 7 rows
+  // Index by (col, row): col 0 = oldest week, row 0 = Sunday
+  let html = '<div class="heatmap-wrap"><div class="heatmap-grid">';
+  for (let col = 0; col < WEEKS_BACK; col++) {
+    for (let row = 0; row < 7; row++) {
+      const d = new Date(firstSunday);
+      d.setDate(firstSunday.getDate() + col * 7 + row);
+      const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const vol = dayVol.get(iso) || 0;
+      const isFuture = d > today;
+      const isToday = d.getTime() === today.getTime();
+      const lvl = levelOf(vol);
+      const cls = `heatmap-cell level-${lvl}${isFuture ? ' future' : ''}${isToday ? ' today' : ''}`;
+      const titleStr = isFuture ? '' : `${iso} · ${vol.toFixed(1)} séries efetivas`;
+      html += `<div class="${cls}" title="${titleStr}"></div>`;
+    }
+  }
+  html += '</div>';
+  html += `<div class="heatmap-legend">
+    <span>Menos</span>
+    <span class="heatmap-legend-cell level-0"></span>
+    <span class="heatmap-legend-cell level-1"></span>
+    <span class="heatmap-legend-cell level-2"></span>
+    <span class="heatmap-legend-cell level-3"></span>
+    <span class="heatmap-legend-cell level-4"></span>
+    <span>Mais</span>
+  </div></div>`;
+  host.innerHTML = html;
+}
+
+// ─── CHART REGISTRY ───────────────────────────────────────────
+const CHART_REGISTRY = [
+  // Existentes (mantidos)
+  { id: 'chart-vol', title: 'Volume total por sessão (kg)', kind: 'canvas', height: 180,
+    dataCheck: ({hist}) => hist.length >= 2 ? {ok:true} : {ok:false, msg:'Mínimo 2 sessões.'},
+    build: buildChart_vol },
+  { id: 'chart-treino', title: 'Volume médio por treino (kg)', kind: 'canvas', height: 160,
+    dataCheck: ({byTreino}) => Object.values(byTreino).some(arr => arr.length > 0) ? {ok:true} : {ok:false, msg:'Nenhuma sessão.'},
+    build: buildChart_treino },
+  // Novos — v4.1
+  { id: 'chart-recovery-timeline', title: 'Recovery Score ao longo do tempo (peito · costas · quad · isquios)', kind: 'canvas', height: 200,
+    dataCheck: ({hist}) => hist.length >= 3 ? {ok:true} : {ok:false, msg:'Mínimo 3 sessões para timeline.'},
+    build: buildChart_recoveryTimeline },
+  { id: 'chart-volume-radar', title: 'Volume semanal por grupo (MEV/MAV/atual)', kind: 'canvas', height: 280,
+    dataCheck: ({hist}) => hist.length >= 1 ? {ok:true} : {ok:false, msg:'Sem sessões na semana.'},
+    build: buildChart_volumeRadar },
+  { id: 'chart-calendar-heatmap', title: 'Consistência · últimas 26 semanas', kind: 'html',
+    dataCheck: ({hist}) => hist.length >= 1 ? {ok:true} : {ok:false, msg:'Sem dados.'},
+    build: buildChart_calendarHeatmap },
+  // Existentes (mantidos)
+  { id: 'chart-ex', title: 'Progressão por exercício (e1RM)', kind: 'canvas', height: 180,
+    htmlHeader: ({exercisesWithData}) => exercisesWithData.length === 0 ? '' :
+      `<select class="chart-select" id="ex-select" onchange="updateExChart()">` +
+      exercisesWithData.map(ex => `<option value="${ex.id}">${ex.name}</option>`).join('') +
+      `</select>`,
+    dataCheck: ({exercisesWithData}) => exercisesWithData.length > 0 ? {ok:true} : {ok:false, msg:'Sem dados.'},
+    build: buildChart_ex },
+  { id: 'chart-bw', title: 'Peso corporal × Sono', kind: 'canvas', height: 180,
+    dataCheck: ({hist}) => hist.filter(h => h.bodyweight).length >= 2 ? {ok:true} : {ok:false, msg:'Registre peso corporal em ao menos 2 sessões.'},
+    build: buildChart_bw },
+];
 
 function updateExChart() {
   const sel = $id('ex-select');
@@ -3050,14 +3845,16 @@ function updateExChart() {
 // ═════════════════════════════════════════════════════════════
 const CSV_COLUMNS = [
   // Session identifiers
-  { key: "session_id",       type: "text",    desc: "ID único (timestamp ISO)" },
-  { key: "schema_version",   type: "int",     desc: "Versão do schema (3 = v2 atual)" },
+  { key: "session_id",       type: "text",    desc: "ID único (timestamp epoch ms)" },
+  { key: "schema_version",   type: "int",     desc: "Versão do schema (4 = v4.0 atual)" },
   { key: "date",             type: "date",    desc: "Data DD/MM/YYYY" },
   { key: "date_iso",         type: "date",    desc: "Data ISO 8601 para ordenação" },
   { key: "weekday",          type: "text",    desc: "Dia da semana (pt-BR)" },
   { key: "week_number",      type: "int",     desc: "Semana ISO no ano" },
   { key: "month",            type: "int",     desc: "Mês (1–12)" },
   { key: "year",             type: "int",     desc: "Ano" },
+  { key: "session_started_at",  type: "text", desc: "ISO UTC — início da sessão (v4)" },
+  { key: "session_finished_at", type: "text", desc: "ISO UTC — fim da sessão (v4)" },
   // Session metadata
   { key: "treino_id",        type: "text",    desc: "Código (A/B/C/D)" },
   { key: "treino_label",     type: "text",    desc: "Nome do treino" },
@@ -3071,10 +3868,11 @@ const CSV_COLUMNS = [
   { key: "sleep_hours",      type: "num",     desc: "Horas de sono na noite anterior" },
   { key: "cardio_min_pre",   type: "int",     desc: "Minutos de cardio fasted pré-treino" },
   // Cycle context
+  { key: "ficha_label",      type: "text",    desc: "Ficha atual (rotação de exercícios, v4)" },
   { key: "mesocycle",        type: "text",    desc: "Mesociclo ativo" },
   { key: "protocol_label",   type: "text",    desc: "Protocolo farmacológico" },
   { key: "cycle_day",        type: "int",     desc: "Dia do ciclo desde início" },
-  { key: "deload",           type: "int",     desc: "Semana de deload (0/1)" },
+  { key: "deload",           type: "int",     desc: "Sessão em janela de deload (0/1)" },
   // Exercise metadata
   { key: "exercise_id",      type: "text",    desc: "ID interno (a1, b3...)" },
   { key: "exercise_name",    type: "text",    desc: "Nome do exercício" },
@@ -3085,13 +3883,14 @@ const CSV_COLUMNS = [
   // Set-level
   { key: "set_number",       type: "int",     desc: "Nº da série" },
   { key: "set_done",         type: "int",     desc: "Concluída? 1/0" },
+  { key: "set_done_at",      type: "text",    desc: "ISO UTC — instante em que foi marcada done (v4)" },
   { key: "load_kg",          type: "num",     desc: "Carga (kg)" },
   { key: "reps_done",        type: "int",     desc: "Reps executadas" },
   { key: "reps_target",      type: "text",    desc: "Faixa prescrita" },
   { key: "rir",              type: "int",     desc: "RIR declarado (0-5)" },
   { key: "volume_kg",        type: "num",     desc: "Volume da série (kg)" },
   // Derived
-  { key: "estimated_1rm",    type: "num",     desc: "1RM Epley" },
+  { key: "estimated_1rm",    type: "num",     desc: "e1RM (Epley ≤12 / Lombardi 13–20 / vazio >20)" },
   { key: "intensity_pct",    type: "num",     desc: "% do e1RM" },
   { key: "inol",             type: "num",     desc: "INOL: reps / (100 − int%)" },
   // EMG-weighted aggregates (per session — duplicated per row)
@@ -3115,15 +3914,15 @@ const CSV_COLUMNS = [
   { key: "rest_sec",         type: "int",     desc: "Descanso real (s) — futuro" },
   { key: "tempo_eccentric",  type: "num",     desc: "Tempo excêntrico — futuro" },
   { key: "tempo_concentric", type: "num",     desc: "Tempo concêntrico — futuro" },
-  { key: "notes",            type: "text",    desc: "Observações livres — futuro" },
+  { key: "notes",            type: "text",    desc: "Observações livres" },
   { key: "bf_pct_pollock",   type: "num",     desc: "% gordura Pollock — futuro" },
   { key: "overshoot_groups", type: "text",    desc: "Grupos em overshoot na sessão (Remmert 2025)" },
-  { key: "recovery_score_at_set", type: "num", desc: "Recovery score do grupo principal do exercício no início da sessão (v3.2 debt model)" },
-  // v3.3: calibração subjetiva pré-sessão (DOMS/prontidão) + flags estímulo
+  { key: "recovery_score_at_set", type: "num", desc: "Recovery score do grupo principal do exercício no início da sessão (debt model)" },
+  // calibração subjetiva pré-sessão (DOMS/prontidão) + flags estímulo
   { key: "subjective_doms_primary",     type: "int", desc: "DOMS 0-10 do grupo primário pré-sessão" },
   { key: "subjective_readiness_primary",type: "int", desc: "Prontidão 0-10 do grupo primário pré-sessão" },
-  { key: "exercise_lengthened_bias",    type: "int", desc: "1 se exercício é flagged lengthened-bias (v3.3)" },
-  { key: "set_failure_flag",            type: "int", desc: "1 se RIR=0 (falha técnica, v3.3 booster)" },
+  { key: "exercise_lengthened_bias",    type: "int", desc: "1 se exercício é flagged lengthened-bias" },
+  { key: "set_failure_flag",            type: "int", desc: "1 se RIR=0 (falha técnica, booster)" },
 ];
 
 function csvEsc(v) {
@@ -3153,7 +3952,8 @@ const ALL_EX_FLAT = [
 ];
 
 function buildCSVRow(session, exDef, setData) {
-  const dateObj = new Date(isoDate(session.date));
+  // v4.0: prefere ts UTC como fonte; date BR é derivado (P2.8)
+  const dateObj = session.ts ? new Date(session.ts) : new Date(isoDate(session.date));
   const load = setData.load || 0;
   const reps = setData.reps || 0;
   const vol  = load * reps;
@@ -3163,14 +3963,17 @@ function buildCSVRow(session, exDef, setData) {
   const inol = (intPct !== '' && intPct < 100) ? +((reps / (100 - intPct)).toFixed(3)) : '';
   const ms = session.muscleSets || {};
   return {
-    session_id:                 new Date(session.ts || 0).toISOString(),
-    schema_version:             session.schemaVersion || 1,
-    date:                       session.date,
-    date_iso:                   isoDate(session.date),
+    // v4.0: session_id agora é o ts epoch ms (estável, único, ordenável).
+    session_id:                 String(session.ts || 0),
+    schema_version:             session.schemaVersion || SCHEMA_VERSION,
+    date:                       session.ts ? tsToBR(session.ts) : (session.date || ''),
+    date_iso:                   session.ts ? tsToISO(session.ts) : isoDate(session.date),
     weekday:                    WEEKDAYS_PT[dateObj.getDay()] || '',
     week_number:                weekNumber(dateObj),
     month:                      dateObj.getMonth() + 1,
     year:                       dateObj.getFullYear(),
+    session_started_at:         session.started_at || '',  // v4.0
+    session_finished_at:        session.finished_at || '', // v4.0
     treino_id:                  session.treino,
     treino_label:               session.treinoLabel || ('Treino ' + session.treino),
     treino_focus:               session.focus || '',
@@ -3181,6 +3984,7 @@ function buildCSVRow(session, exDef, setData) {
     bodyweight_kg:              session.bodyweight ?? '',
     sleep_hours:                session.sleep_hours ?? '',
     cardio_min_pre:             session.cardio_min ?? '',
+    ficha_label:                session.ficha_label || '',  // v4.0
     mesocycle:                  session.mesocycle || '',
     protocol_label:             session.protocol_label || '',
     cycle_day:                  session.cycle_day ?? '',
@@ -3193,6 +3997,7 @@ function buildCSVRow(session, exDef, setData) {
     exercise_vol_session_kg:    session.exVolumes?.[exDef.id] || 0,
     set_number:                 setData.setNum,
     set_done:                   setData.done,
+    set_done_at:                setData.done_at || '',  // v4.0
     load_kg:                    load,
     reps_done:                  reps,
     reps_target:                setData.targetReps || '',
@@ -3222,7 +4027,7 @@ function buildCSVRow(session, exDef, setData) {
     overshoot_groups: (session.overshootGroups && session.overshootGroups.length > 0)
       ? session.overshootGroups.map(o => `${o.group}:${o.sets}`).join('|')
       : '',
-    // v3.2: snapshot do score do grupo principal deste exercício no início da sessão
+    // snapshot do score do grupo principal deste exercício no início da sessão
     recovery_score_at_set: (() => {
       const snap = session.recoverySnapshot || {};
       const coef = EMG_COEFFICIENTS[exDef.id];
@@ -3232,7 +4037,7 @@ function buildCSVRow(session, exDef, setData) {
       Object.entries(coef).forEach(([g, v]) => { if (v > topVal) { topVal = v; topGrp = g; } });
       return (topGrp && snap[topGrp] !== undefined) ? snap[topGrp] : '';
     })(),
-    // v3.3: calibração subjetiva pré-sessão (DOMS/prontidão do grupo primário)
+    // calibração subjetiva pré-sessão (DOMS/prontidão do grupo primário)
     subjective_doms_primary: (() => {
       const subj = session.subjective || {};
       const coef = EMG_COEFFICIENTS[exDef.id];
@@ -4280,19 +5085,21 @@ currentTab = getNextTrainingTab(); // v4.0: abre no próximo treino da rotação
 $id("today-date").textContent = today();
 renderAll();
 
-// Mantém UI sincronizada se usuário voltar de outra aba
+// v4.1: restaura timer de descanso e session chip pendentes no boot
+restorePendingRestTimer();
+ensureSessionTimerInterval();
+updateSessionChip();
+// Wake lock condicional ao boot — só se aba ativa for de treino
+if (['A','B','C','D'].includes(currentTab)) requestWakeLock();
+
+// v4.1: visibilitychange — re-sincroniza UI ao voltar para a aba.
+// Wake Lock é re-requisitado no handler global registrado mais acima.
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
-    // Atualiza display de timers que estavam rodando
-    Object.keys(timers).forEach(exId => {
-      const tk = timers[exId];
-      if (!tk) return;
-      const display = $id("timer_" + exId);
-      if (display) {
-        tk.elapsed = Math.floor((Date.now() - tk.startMs) / 1000);
-        display.textContent = fmtMMSS(tk.target - tk.elapsed);
-      }
-    });
+    // Força um tick do rest timer (se ativo) para sincronizar display
+    if (restTimerState) tickRestTimer();
+    // Atualiza session chip
+    updateSessionChip();
   }
 });
 
